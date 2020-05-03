@@ -10,8 +10,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 find_package(FUSE REQUIRED)
+find_package(I2C REQUIRED)
 
 include_directories(${FUSE_INCLUDE_DIR})
+include_directories(${I2C_INCLUDE_DIRS})
 add_executable(owctl owctl_main.c)
 target_link_libraries(owctl ${FUSE_LIBRARIES})
 
