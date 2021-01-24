@@ -9,8 +9,18 @@
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 
+#include "ow.h"
+
 #define MAX_BUS 2
 #define MAX_DEVS 15
+
+struct global Globals = {
+	.daemon_status = e_daemon_fg,
+	.error_level = e_err_default,
+	.error_print = e_err_print_mixed,
+	.fatal_debug = 1,
+	.fatal_debug_file = NULL,
+};
 
 int fd;
 uint8_t devs[MAX_BUS][MAX_DEVS][8];
@@ -293,15 +303,42 @@ static struct fuse_operations fuse_example_operations = {
 	.readdir = readdir_callback,
 };
 
+#include "ow_search.h"
+extern int DS2482_channel_select(int fd, int chan);
+extern enum search_status DS2482_next_both(struct device_search *ds, int fd);
+extern GOOD_OR_BAD DS2482_send(int fd, const uint8_t wr);
+extern int DS2482_reset(int fd);
+
 int main(int argc, char *argv[])
 {
-	int ret;
+	int ret, adr;
+
 	fd = open("/dev/i2c-0", O_RDWR);
-	int adr = 0x2f;
 	if (fd < 0) {
 		printf("I2c device open error (%s)\n", strerror(errno));
 		return -1;
 	}
+	adr = 0x18;
+	if (ioctl(fd, I2C_SLAVE, adr) < 0) {
+		printf("Cound not set trial i2c address to %.2X\n", adr);
+		close(fd);
+		return -1;
+	} else {
+		struct device_search ds;
+		
+		printf("Found an i2c device at address %.2X\n", adr);
+		DS2482_channel_select(fd, 0);
+		ds.LastDevice = 0;
+		ds.search = _1W_SEARCH_ROM;
+		do {
+			DS2482_reset(fd);
+			DS2482_send(fd, _1W_SEARCH_ROM);
+			DS2482_next_both(&ds, fd);
+			LEVEL_DEFAULT("SN found: " SNformat, SNvar(ds.sn));
+		} while(ds.LastDevice == 0);
+	}
+	
+	adr = 0x2f;
 	if (ioctl(fd, I2C_SLAVE, adr) < 0) {
 		printf("Cound not set trial i2c address to %.2X\n", adr);
 		close(fd);
