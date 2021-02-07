@@ -33,8 +33,8 @@
 /* predeclare some structures */
 struct connection_in;
 struct device;
-struct filetype;
 struct devloc ;
+struct filetype;
 
 /* Maximum length of a file or directory name, and extension */
 #define OW_NAME_MAX      (32)
@@ -89,6 +89,8 @@ enum eBranch {
 #define NO_SUBDIR NULL
 #define NO_DEVICE NULL
 
+enum parse_serialnumber { sn_valid, sn_invalid, sn_not_sn, sn_null, } ;
+
 enum ePN_type {
 	ePN_root,
 	ePN_real,
@@ -117,10 +119,12 @@ enum ePS_state {
 	ePS_json          = 0x0400,
 };
 
+
 struct parsedname {
 	char path[2*PATH_MAX+2];				// full device name
 	char path_to_server[PATH_MAX+2];			// path without first bus
 	char * device_name ;		// for external name
+	int fd;
 	struct connection_in *known_bus;	// where this device is located
 	enum ePN_type type;			// real? settings? ...
 	enum ePS_state state;			// alarm?
@@ -141,19 +145,19 @@ struct parsedname {
 };
 
 /* ---- end Parsedname ----------------- */
-#define SHOULD_RETURN_BUS_LIST      ( (UINT) 0x00000002 )
-#define PERSISTENT_MASK             ( (UINT) 0x00000004 )
+#define SHOULD_RETURN_BUS_LIST      ( (unsigned int) 0x00000002 )
+#define PERSISTENT_MASK             ( (unsigned int) 0x00000004 )
 #define PERSISTENT_BIT     2
-#define ALIAS_REQUEST               ( (UINT) 0x00000008 )
-#define SAFEMODE                    ( (UINT) 0x00000010 )
-#define UNCACHED                    ( (UINT) 0x00000020 )
-#define TRIM                        ( (UINT) 0x00000040 )
-#define OWNET                       ( (UINT) 0x00000100 )
-#define TEMPSCALE_MASK              ( (UINT) 0x00030000 )
+#define ALIAS_REQUEST               ( (unsigned int) 0x00000008 )
+#define SAFEMODE                    ( (unsigned int) 0x00000010 )
+#define UNCACHED                    ( (unsigned int) 0x00000020 )
+#define TRIM                        ( (unsigned int) 0x00000040 )
+#define OWNET                       ( (unsigned int) 0x00000100 )
+#define TEMPSCALE_MASK              ( (unsigned int) 0x00030000 )
 #define TEMPSCALE_BIT      16
-#define PRESSURESCALE_MASK          ( (UINT) 0x001C0000 )
+#define PRESSURESCALE_MASK          ( (unsigned int) 0x001C0000 )
 #define PRESSURESCALE_BIT  18
-#define DEVFORMAT_MASK              ( (UINT) 0xFF000000 )
+#define DEVFORMAT_MASK              ( (unsigned int) 0xFF000000 )
 #define DEVFORMAT_BIT      24
 #define IsPersistent(ppn)         ( ((ppn)->control_flags & PERSISTENT_MASK) )
 #define SetPersistent(ppn,b)      UT_Setbit(((ppn)->control_flags),PERSISTENT_BIT,(b))
@@ -163,7 +167,7 @@ struct parsedname {
 #define SGPressureScale(sg)    ( (enum pressure_type)(((sg) & PRESSURESCALE_MASK) >> PRESSURESCALE_BIT) )
 #define DeviceFormat(ppn)         ( (enum deviceformat) (((ppn)->control_flags & DEVFORMAT_MASK) >> DEVFORMAT_BIT) )
 
-#define IsDir( pn )    ( ((pn)->selected_device)==NO_DEVICE \
+#define IsDir(pn)    ( ((pn)->selected_device)==NO_DEVICE \
                       || ((pn)->selected_filetype)==NO_FILETYPE  \
                       || ((pn)->selected_filetype)->format==ft_subdir \
                       || ((pn)->selected_filetype)->format==ft_directory )
@@ -187,7 +191,6 @@ struct parsedname {
 #define KnownBus(pn)          ((((pn)->state) & ePS_bus) != 0 )
 #define UnsetKnownBus(pn)           do { (pn)->state &= ~ePS_bus; \
                                         (pn)->known_bus=NULL; \
-                                        (pn)->selected_connection=NO_CONNECTION; \
                                     } while(0)
 
 #define ShouldReturnBusList(ppn)  ( ((ppn)->control_flags & SHOULD_RETURN_BUS_LIST) )
@@ -210,5 +213,8 @@ enum parse_enum {
 	parse_prop,
 	parse_subprop
 };
+
+enum parse_serialnumber Parse_SerialNumber(char *sn_char, uint8_t * sn);
+int SerialNumber_length(char *sn_char, uint8_t * sn) ;
 
 #endif							/* OW_PARSEDNAME_H */

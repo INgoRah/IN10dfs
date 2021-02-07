@@ -69,6 +69,12 @@ struct global {
 	int error_print;
 	int fatal_debug;
 	char *fatal_debug_file;
+	int uncached; // all requests are from /uncached directory
+	/* timeouts -- order must match ow_opt.c values for correct indexing */
+	int timeout_volatile;
+	int timeout_stable;
+	int timeout_directory;
+	int timeout_presence;
 };
 
 extern struct global Globals;

@@ -79,6 +79,26 @@ void UT_setbit(uint8_t * buf, int loc, int bit)
 	}
 }
 
+/* All the rest of the program sees is the DS2482_detect and the entry in iroutines */
+/* Open a DS2482 */
+/* Top level detect routine */
+int DS2482_detect(int *fd)
+{
+	int adr = 0x18;
+	*fd = open("/dev/i2c-0", O_RDWR);
+	if (*fd < 0) {
+		printf("I2c device open error (%s)\n", strerror(errno));
+		return -1;
+	}
+	if (ioctl(*fd, I2C_SLAVE, adr) < 0) {
+		printf("Cound not set trial i2c address to %.2X\n", adr);
+		close(*fd);
+		return -1;
+	}
+
+	return 0;
+}
+
 /* Is this a DS2483? Try to set to new register */
 int DS2482_channel_select(int fd, int chan)
 {

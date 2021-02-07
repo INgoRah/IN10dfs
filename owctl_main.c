@@ -8,8 +8,11 @@
 #include <sys/ioctl.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
+#include "i2c-dev.h"
 
 #include "ow.h"
+#include "ow_search.h"
+#include "ow_functions.h"
 
 #define MAX_BUS 2
 #define MAX_DEVS 15
@@ -20,56 +23,71 @@ struct global Globals = {
 	.error_print = e_err_print_mixed,
 	.fatal_debug = 1,
 	.fatal_debug_file = NULL,
+	.uncached = 0,
+	.timeout_volatile = 15,
+	.timeout_stable = 300,
+	.timeout_directory = 60,
+	.timeout_presence = 120,
 };
 
 int fd;
 uint8_t devs[MAX_BUS][MAX_DEVS][8];
 
-static inline __s32 i2c_smbus_access(int file, char read_write, __u8 command, int size, union i2c_smbus_data *data)
+/* Length of a property element */
+/* based on property type in most cases, except ascii and binary, which are explicitly sized */
+size_t FileLength(const struct parsedname *pn)
 {
-	struct i2c_smbus_ioctl_data args;
+	if (pn->type == ePN_structure) {
+		return PROPERTY_LENGTH_STRUCTURE;	/* longest seem to be /1wire/structure/0F/memory.ALL (28 bytes) so far... */
+	}
+	/* directory ? */
+	if (IsDir(pn)) {
+		return PROPERTY_LENGTH_DIRECTORY;
+	}
 
-	args.read_write = read_write;
-	args.command = command;
-	args.size = size;
-	args.data = data;
-	return ioctl(file, I2C_SMBUS, &args);
+	switch (pn->selected_filetype->format) {
+	case ft_yesno:
+		return PROPERTY_LENGTH_YESNO;
+	case ft_integer:
+		return PROPERTY_LENGTH_INTEGER;
+	case ft_unsigned:
+		return PROPERTY_LENGTH_UNSIGNED;
+	case ft_float:
+		return PROPERTY_LENGTH_FLOAT;
+	case ft_pressure:
+		return PROPERTY_LENGTH_PRESSURE;
+	case ft_temperature:
+		return PROPERTY_LENGTH_TEMP;
+	case ft_tempgap:
+		return PROPERTY_LENGTH_TEMPGAP;
+	case ft_date:
+		return PROPERTY_LENGTH_DATE;
+	case ft_bitfield:
+		return (pn->extension == EXTENSION_BYTE) ? PROPERTY_LENGTH_UNSIGNED : PROPERTY_LENGTH_YESNO;
+	case ft_vascii:			// not used anymore here...
+	case ft_alias:
+	case ft_ascii:
+	case ft_binary:
+	default:
+		return pn->selected_filetype->suglen;
+	}
 }
 
-static inline __s32 i2c_smbus_write_byte(int file, __u8 value)
+/* Length of file based on filetype and extension */
+size_t FullFileLength(const struct parsedname * pn)
 {
-	return i2c_smbus_access(file, I2C_SMBUS_WRITE, value, I2C_SMBUS_BYTE, NULL);
-}
-
-static inline __s32 i2c_smbus_write_byte_data(int file, __u8 command, __u8 value)
-{
-	union i2c_smbus_data data;
-	data.byte = value;
-	return i2c_smbus_access(file, I2C_SMBUS_WRITE, command, I2C_SMBUS_BYTE_DATA, &data);
-}
-
-static inline __s32 i2c_smbus_read_byte(int file)
-{
-	union i2c_smbus_data data;
-	if (i2c_smbus_access(file, I2C_SMBUS_READ, 0, I2C_SMBUS_BYTE, &data))
-		return -1;
-	else
-		return 0x0FF & data.byte;
-}
-
-/* Returns the number of read bytes */
-static inline __s32 i2c_smbus_read_block_data(int file, __u8 command, __u8 * values)
-{
-	union i2c_smbus_data data;
-	int i;
-	if (i2c_smbus_access(file, I2C_SMBUS_READ, 0, I2C_SMBUS_BYTE, &data))
-
-	if (i2c_smbus_access(file, I2C_SMBUS_READ, command, I2C_SMBUS_BLOCK_DATA, &data))
-		return -1;
-	else {
-		for (i = 1; i <= data.block[0]; i++)
-			values[i - 1] = data.block[i];
-		return data.block[0];
+	size_t entry_length = FileLength(pn);
+	if (pn->type == ePN_structure) {
+		return entry_length;
+	} else if (pn->extension != EXTENSION_ALL) {
+		return entry_length;
+	} else {
+		size_t elements = pn->selected_filetype->ag->elements;
+		if (pn->selected_filetype->format == ft_binary) {
+			return entry_length * elements;
+		} else {				// add room for commas
+			return (entry_length + 1) * elements - 1;
+		}
 	}
 }
 
@@ -77,7 +95,7 @@ static int getattr_callback(const char *path, struct stat *stbuf) {
 	memset(stbuf, 0, sizeof(struct stat));
 
 	stbuf->st_uid = getuid();
-	stbuf->st_gid = getgid(); 
+	stbuf->st_gid = getgid();
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
@@ -112,19 +130,21 @@ static int getattr_callback(const char *path, struct stat *stbuf) {
 		stbuf->st_size = 5;
 		return 0;
 	}
-	
+
 	printf ("getattr fail\n");
 	return -ENOENT;
 }
 
+#define FILLER(handle,name) filler(handle,name,DT_DIR,0)
+
 static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
     off_t offset, struct fuse_file_info *fi) {
 	int i, j, bus = 0;
-	
+
 	(void) offset;
 	(void) fi;
 	char s[32];
-	
+
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
@@ -132,7 +152,7 @@ static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
 		i = 0;
 		while(devs[bus][i][0] != 0) {
 			printf ("id %d\n", i);
-			sprintf(s, "%02X.%02X%02X%02X%02X%02X%02X", 
+			sprintf(s, "%02X.%02X%02X%02X%02X%02X%02X",
 				devs[bus][i][0], devs[bus][i][1],
 				devs[bus][i][2], devs[bus][i][3],
 				devs[bus][i][4], devs[bus][i][5],
@@ -144,7 +164,7 @@ static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
 	}
 	if (strcmp(path, "/bus.1") == 0) {
 		i = 1;
-		sprintf(s, "%02X.%02X%02X%02X%02X%02X%02X%02X", 
+		sprintf(s, "%02X.%02X%02X%02X%02X%02X%02X%02X",
 			devs[bus][i][0], devs[bus][i][1],
 			devs[bus][i][2], devs[bus][i][3],
 			devs[bus][i][4], devs[bus][i][5],
@@ -157,7 +177,7 @@ static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
 		filler(buf, "cmd", NULL, 0);
 		return 0;
 	}
-  
+
 	filler(buf, "search", NULL, 0);
 	filler(buf, "bus.0", NULL, 0);
 	filler(buf, "bus.1", NULL, 0);
@@ -169,6 +189,9 @@ static int open_callback(const char *path, struct fuse_file_info *fi) {
 	return 0;
 }
 
+/* large enough for arrays of 2048 elements of ~49 bytes each */
+#define MAX_OWSERVER_PROTOCOL_PAYLOAD_SIZE  100050
+
 static int read_callback(const char *path, char *buf, size_t size, off_t offset,
     struct fuse_file_info *fi)
 {
@@ -177,13 +200,44 @@ static int read_callback(const char *path, char *buf, size_t size, off_t offset,
 	if (strcmp(path, "/status/mode") == 0) {
 		i2c_smbus_write_byte_data(fd, 0xE1, 0x69);
 		res = i2c_smbus_read_byte(fd);
-		sprintf (buf, "0x%02X\n", res); 
+		sprintf (buf, "0x%02X\n", res);
 		return 5;
 	}
+
+	int return_size ;
+	struct one_wire_query struct_owq;
+	struct one_wire_query *owq = &struct_owq;
+
+	memset(&struct_owq, 0, sizeof(struct one_wire_query));
+
+	if (path == NO_PATH)
+		path = "/";
+
+	/* Can we parse the input string */
+	if (BAD(OWQ_create(path, owq)))
+		return -ENOENT;
+
+	if ( IsDir( PN(owq) ) ) { /* A directory of some kind */
+		return_size = -EISDIR ;
+	} else if ( offset >= (off_t) FullFileLength( PN(owq) ) ) {
+		// fuse requests a useless read at end of file -- just return ok.
+		return_size = 0 ;
+	} else {
+		if ( size > MAX_OWSERVER_PROTOCOL_PAYLOAD_SIZE ) {
+			LEVEL_DEBUG( "Requested read length %ld will be trimmed to owfs max %ld",(long int) size, (long int) MAX_OWSERVER_PROTOCOL_PAYLOAD_SIZE ) ;
+			size = MAX_OWSERVER_PROTOCOL_PAYLOAD_SIZE ;
+		}
+		OWQ_assign_read_buffer(buf, size, offset, owq) ;
+		return_size = FS_read_postparse(owq) ;
+	}
+	OWQ_destroy(owq);
+
+	return return_size ;
 
 	return -ENOENT;
 }
 
+#if 0
 int owSearch()
 {
 	int res;
@@ -207,8 +261,8 @@ int owSearch()
 	printf ("res=%d\n", res);
 	/*if (res != 0)
 		return 0;*/
-#endif		
-#ifdef WAIT_POLL		
+#endif
+#ifdef WAIT_POLL
 	i2c_smbus_write_byte_data(fd, 0xE1, 0xE1);
 	res = i2c_smbus_read_byte(fd);
 	printf ("res=%d\n", res);
@@ -238,23 +292,24 @@ int owSearch()
 		}
 		if (devs[bus][i][0] == 0)
 			break;
-		printf("%02X.%02X%02X%02X%02X%02X%02X\n", 
+		printf("%02X.%02X%02X%02X%02X%02X%02X\n",
 			devs[bus][i][0], devs[bus][i][1],
 			devs[bus][i][2], devs[bus][i][3],
 			devs[bus][i][4], devs[bus][i][5],
 			devs[bus][i][6]);
 	}
 	i = 0;
-	
+
 	i2c_smbus_write_byte(fd, 0x5B);
 	return 0;
 }
+#endif
 
 static int write_callback(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *flags)
 {
 	if (strcmp(path, "/status/mode") == 0) {
 		int mode;
-		
+
 		if (!sscanf(buf, "0x%X\n", &mode))
 			sscanf(buf, "%d\n", &mode);
 		printf ("Mode=%X\n", mode);
@@ -263,7 +318,7 @@ static int write_callback(const char *path, const char *buf, size_t size, off_t 
 	}
 	if (strcmp(path, "/status/cmd") == 0) {
 		int mode;
-		
+
 		if (!sscanf(buf, "0x%X\n", &mode))
 			sscanf(buf, "%d\n", &mode);
 		printf ("cmd=%X\n", mode);
@@ -272,14 +327,14 @@ static int write_callback(const char *path, const char *buf, size_t size, off_t 
 		return size;
 	}
 	if (strcmp(path, "/search") == 0) {
-		owSearch();
+		//owSearch();
 		return size;
 	}
 
 	return size;
 }
 
-static int stat_cb (const char *path, struct statvfs *stat) 
+static int stat_cb (const char *path, struct statvfs *stat)
 {
 	memset(stat, 0, sizeof(struct statvfs));
 	return 0;
@@ -325,7 +380,7 @@ int main(int argc, char *argv[])
 		return -1;
 	} else {
 		struct device_search ds;
-		
+
 		printf("Found an i2c device at address %.2X\n", adr);
 		DS2482_channel_select(fd, 0);
 		ds.LastDevice = 0;
@@ -337,7 +392,7 @@ int main(int argc, char *argv[])
 			LEVEL_DEFAULT("SN found: " SNformat, SNvar(ds.sn));
 		} while(ds.LastDevice == 0);
 	}
-	
+
 	adr = 0x2f;
 	if (ioctl(fd, I2C_SLAVE, adr) < 0) {
 		printf("Cound not set trial i2c address to %.2X\n", adr);
@@ -345,10 +400,10 @@ int main(int argc, char *argv[])
 		return -1;
 	} else {
 		printf("Found an i2c device at address %.2X\n", adr);
-	}		
+	}
 	//owSearch();
 	ret = fuse_main(argc, argv, &fuse_example_operations, NULL);
-	
+
 	close(fd);
 	return ret;
 }

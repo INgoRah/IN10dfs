@@ -42,6 +42,41 @@
 #ifndef OW_FUNCTION_H			/* tedious wrapper */
 #define OW_FUNCTION_H
 
+#define BYTE_MASK(x)        ( (unsigned char) ((x) & 0xFF) )
+#define BYTE_INVERSE(x)     BYTE_MASK((x) ^ 0xFF)
+#define LOW_HIGH_ADDRESS(x)         BYTE_MASK(x),BYTE_MASK((x)>>8)
+
+int UT_getbit(const uint8_t * buf, int loc);
+void UT_setbit(uint8_t * buf, int loc, int bit);
+
+int UT_getbit_U(unsigned int U, int loc);
+void UT_setbit_U(unsigned int * U, int loc, int bit);
+
+/* Prototypes */
+#define  READ_FUNCTION( fname )  static int fname(struct one_wire_query * owq)
+#define  WRITE_FUNCTION( fname )  static int fname(struct one_wire_query * owq)
+#define  VISIBLE_FUNCTION( fname )  static enum e_visibility fname(const struct parsedname * pn);
+
+/* Pasename processing -- URL/path comprehension */
+int filetype_cmp(const void *name, const void *ex);
+int FS_ParsedName(const char *fn, struct parsedname *pn);
+int FS_ParsedNamePlus(const char *path, const char *file, struct parsedname *pn);
+
+int FS_ParsedNamePlusExt(const char *path, const char *file, int extension, enum ag_index alphanumeric, struct parsedname *pn);
+int FS_ParsedNamePlusText(const char *path, const char *file, const char *extension, struct parsedname *pn);
+
+void FS_ParsedName_destroy(struct parsedname *pn);
+int FS_read_postparse(struct one_wire_query *owq);
+
+size_t FileLength(const struct parsedname *pn);
+size_t FullFileLength(const struct parsedname *pn);
+int CheckPresence(struct parsedname *pn);
+int ReCheckPresence(struct parsedname *pn);
+
+void FS_devicename(char *buffer, const size_t length, const uint8_t *sn, const struct parsedname *pn);
+void FS_devicefind(const char *code, struct parsedname *pn);
+struct device * FS_devicefindhex(uint8_t f, struct parsedname *pn);
+
 /* Utility functions */
 uint8_t CRC8(const uint8_t * bytes, const size_t length);
 uint8_t CRC8seeded(const uint8_t * bytes, const size_t length, const unsigned int seed);
@@ -49,11 +84,13 @@ uint8_t CRC8compute(const uint8_t * bytes, const size_t length, const unsigned i
 int CRC16(const uint8_t * bytes, const size_t length);
 uint16_t CRC16compute(const uint8_t * bytes, const size_t length, const unsigned int seed);
 int CRC16seeded(const uint8_t * bytes, const size_t length, const unsigned int seed);
+uint8_t char2num(const char *s);
+uint8_t string2num(const char *s);
+char num2char(const uint8_t n);
+void num2string(char *s, const uint8_t n);
+void string2bytes(const char *str, uint8_t * b, const int bytes);
+void bytes2string(char *str, const uint8_t * b, const int bytes);
 
-int UT_getbit(const uint8_t * buf, int loc);
-void UT_setbit(uint8_t * buf, int loc, int bit);
-
-int UT_getbit_U(unsigned int U, int loc);
-void UT_setbit_U(unsigned int * U, int loc, int bit);
+void FS_LoadDirectoryOnly(struct parsedname *pn_directory, const struct parsedname *pn_original);
 
 #endif							/* OW_FUNCTION_H */

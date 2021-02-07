@@ -77,7 +77,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <stddef.h> // for offsetof()
+#include <stddef.h> // for offsetof(), size_t
 #include <string.h>
 
 /* Debugging and error messages separated out for readability */
@@ -99,22 +99,56 @@
 #define ENOTSUP EOPNOTSUPP
 #endif							/* ENOTSUP */
 
+#define owcalloc(nmemb,size)  calloc(nmemb,size)
+#define owmalloc(size)        malloc(size)
+#define owfree(ptr)           free(ptr)
+#define owstrdup(s)           strdup(s)
+
+#define SAFEFREE(p)    do { if ( (p)!= NULL ) { owfree(p) ; p=NULL; } } while (0)
+//#define SAFETDESTROY(p,f) do { if ( (p)!=NULL ) { tdestroy(p,f) ; p=NULL; } } while (0)
+
 /* Bytes in a 1-wire address */
 #define SERIAL_NUMBER_SIZE           8
+
+/* Define our understanding of function returns ... */
+#include "ow_localreturns.h"
 
 /* Maximum length of a file or directory name, and extension */
 #define OW_NAME_MAX      (32)
 #define OW_EXT_MAX       (6)
 #define OW_FULLNAME_MAX  (OW_NAME_MAX+OW_EXT_MAX)
 #define OW_DEFAULT_LENGTH (128)
+#include "ow_filetype.h"
+
+/* -------------------------------- */
+/* Devices -- types of 1-wire chips */
+/*                                  */
+#include "ow_device.h"
+
+/* device display format */
+enum deviceformat { fdi, fi, fdidc, fdic, fidc, fic };
+
+/* Parsedname -- path converted into components */
+#include "ow_parsedname.h"
+
+/* "Object-type" structure for the anctual owfs query --
+  holds name, flags, values, and path */
+#include "ow_onewirequery.h"
 
 
 /* Globals information (for local control) */
 /* Separated out into ow_global.h for readability */
 #include "ow_global.h"
 
-/* Define our understanding of function returns ... */
-#include "ow_localreturns.h"
+#include "ow_functions.h"
+
+/* Return and error codes */
+/* Set return code into an integer */
+#if 0
+#define RETURN_CODE_SET_SCALAR(i,rc)    return_code_set_scalar( rc, &(i), __FILE__, __LINE__, __func__ )
+/* Unconditional return with return code */
+#define RETURN_CODE_RETURN(rc)	do { int i ; RETURN_CODE_SET_SCALAR(i,rc) ; return -i; } while(0) ;
+#endif
 
 #define UCLIBCLOCK			return_ok()
 #define UCLIBCUNLOCK		return_ok()

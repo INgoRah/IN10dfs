@@ -47,28 +47,104 @@
         Branding Policy.
     ---------------------------------------------------------------------------
     Implementation:
-    25-05-2003 iButtonLink device
+    2006 memblob
 */
 
-#ifndef OW_SEARCH_H			/* tedious wrapper */
-#define OW_SEARCH_H
+#include "ow.h"
+#include "ow_memblob.h"
 
-#include "ow_parsedname.h"
+static int MemblobIncrease(size_t length, struct memblob *mb);
 
-enum search_status { search_good, search_done, search_error } ;
+/*
+    A "memblob" is a structure holding a list of 1-wire serial numbers
+    (8 bytes each) with some housekeeping information
 
-struct device_search {
-	int LastDiscrepancy;		// for search
-	int LastDevice;				// for search
-	int index;
-	uint8_t sn[SERIAL_NUMBER_SIZE];
-	uint8_t search;
-};
+    It is used for directory caches, and some "all at once" adapters types
 
-enum search_status  BUS_first(struct device_search *ds, const struct parsedname *pn);
-enum search_status  BUS_next(struct device_search *ds, const struct parsedname *pn);
-enum search_status  BUS_first_alarm(struct device_search *ds, const struct parsedname *pn);
-enum search_status  BUS_next_both(struct device_search *ds, const struct parsedname *pn);
-enum search_status  BUS_next_both_bitbang(struct device_search *ds, const struct parsedname *pn) ;
-void BUS_next_cleanup( struct device_search *ds ) ;
-#endif							/* OW_SEARCH_H */
+    Most interesting, it allocates memory dynamically.
+*/
+
+void MemblobClear(struct memblob *mb)
+{
+    if (mb->memory_storage)
+        free(mb->memory_storage);
+	mb->memory_storage = NULL;
+	mb->troubled = 0 ;
+	mb->used = 0;
+	mb->allocated = 0;
+}
+
+void MemblobInit(struct memblob *mb, size_t increment)
+{
+	mb->used = 0;
+	mb->allocated = 0;
+	mb->troubled = 0 ;
+	mb->increment = increment;
+	mb->memory_storage = NULL;
+}
+
+uint8_t * MemblobData(struct memblob * mb)
+{
+	return mb->memory_storage ;
+}
+
+size_t MemblobLength(struct memblob * mb)
+{
+	return mb->used ;
+}
+
+int MemblobPure(struct memblob *mb)
+{
+	return !mb->troubled;
+}
+
+void MemblobTrim(size_t nchars, struct memblob * mb)
+{
+	if (mb->used < nchars) {
+		MemblobClear(mb) ;
+	} else {
+		mb->used -= nchars ;
+	}
+}
+
+static int MemblobIncrease(size_t length, struct memblob *mb)
+{
+	// make more room? -- blocks of 10 devices (80byte)
+	if ((mb->used + length > mb->allocated)
+		|| (mb->memory_storage == NULL)) {
+		size_t increment = ((length / mb->increment) + 1) * mb->increment;
+		size_t newalloc = mb->allocated + increment;
+		uint8_t *try_bigger_block = realloc(mb->memory_storage, newalloc);
+		if (try_bigger_block != NULL) {
+			mb->allocated = newalloc;
+			mb->memory_storage = try_bigger_block;
+		} else {				// allocation failed -- keep old
+			mb->troubled = 1 ;
+			return -ENOMEM;
+		}
+	}
+	mb->used += length;
+	return 0;
+}
+
+int MemblobAdd(const uint8_t * data, size_t length, struct memblob *mb)
+{
+	size_t used = mb->used;
+	int ret = MemblobIncrease(length, mb);
+	if (ret == 0) {
+		// add the device and increment the counter
+		memcpy(&(mb->memory_storage[used]), data, length);
+	}
+	return ret;
+}
+
+int MemblobAddChar(uint8_t character, size_t length, struct memblob *mb)
+{
+	size_t used = mb->used;
+	int ret = MemblobIncrease(length, mb);
+	if (ret == 0) {
+		// add the device and increment the counter
+		memset(&(mb->memory_storage[used]), character, length);
+	}
+	return ret;
+}
