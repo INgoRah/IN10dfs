@@ -401,9 +401,9 @@ int main(int argc, char *argv[])
 	} else {
 		printf("Found an i2c device at address %.2X\n", adr);
 	}
+	close(fd);
 	//owSearch();
 	ret = fuse_main(argc, argv, &fuse_example_operations, NULL);
 
-	close(fd);
 	return ret;
 }

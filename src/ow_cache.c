@@ -620,7 +620,7 @@ GOOD_OR_BAD OWQ_Cache_Get(struct one_wire_query *owq)
 	if (IsUncachedDir(pn) || IsAlarmDir(pn)) {
 		return gbBAD;
 	}
-
+#if 0
 	switch (pn->selected_filetype->change) {
 	case fc_simultaneous_temperature:
 		return Cache_Get_Simultaneous(SlaveSpecificTag(S_T), owq) ;
@@ -629,7 +629,7 @@ GOOD_OR_BAD OWQ_Cache_Get(struct one_wire_query *owq)
 	default:
 		break ;
 	}
-
+#endif
 	if (pn->extension == EXTENSION_ALL) {
 		switch (pn->selected_filetype->format) {
 		case ft_ascii:

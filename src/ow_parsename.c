@@ -331,7 +331,7 @@ static int FS_ParsedName_setup(struct parsedname_pointers *pp, const char *path,
 
 	/* Set the persistent state info (temp scale, ...) -- will be overwritten by client settings in the server */
 	CONTROLFLAGSLOCK;
-	pn->control_flags = LocalControlFlags | SHOULD_RETURN_BUS_LIST;	// initial flag as the bus-returning level, will change if a bus is specified
+	pn->control_flags = /*LocalControlFlags | */ SHOULD_RETURN_BUS_LIST;	// initial flag as the bus-returning level, will change if a bus is specified
 	CONTROLFLAGSUNLOCK;
 
 	// initialization

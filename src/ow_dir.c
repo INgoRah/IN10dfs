@@ -42,22 +42,6 @@ static ZERO_OR_ERROR FS_dir_plus(void (*dirfunc) (void *, const struct parsednam
 
 time_t dir_time;
 
-enum e_visibility FS_visible( const struct parsedname * pn )
-{
-	struct filetype * ft = pn->selected_filetype ;
-	if ( ft != NO_FILETYPE ) {
-		// filetype exists
-		return ft->visible(pn) ;
-	}
-	ft = pn->subdir ;
-	if ( ft != NO_SUBDIR ) {
-		// this is a subdir
-		return ft->visible(pn) ;
-	}
-	// default is to show
-	return visible_always ;
-}
-
 /* Calls dirfunc() for each element in directory */
 /* void * data is arbitrary user data passed along -- e.g. output file descriptor */
 /* pn_directory -- input:

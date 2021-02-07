@@ -69,7 +69,7 @@ struct one_wire_query {
 #define OWQ_array_Y(owq,i)    ((OWQ_array(owq)[i]).Y)
 #define OWQ_array_length(owq,i) ((OWQ_array(owq)[i]).length)
 
-#define OWQ_explode(owq)	(BYTE *)OWQ_buffer(owq),OWQ_size(owq),OWQ_offset(owq),PN(owq)
+#define OWQ_explode(owq)	(uint8_t *)OWQ_buffer(owq),OWQ_size(owq),OWQ_offset(owq),PN(owq)
 
 #define OWQ_SIMUL_SET(owq)    (((owq)->cleanup) |= owq_simultaneous )
 #define OWQ_SIMUL_CLR(owq)    (((owq)->cleanup) &= (~owq_simultaneous) )
@@ -108,6 +108,5 @@ struct one_wire_query * BYTEtoALL( struct one_wire_query *owq_byte );
 
 int OWQ_parse_input(struct one_wire_query *owq);
 size_t OWQ_parse_output(struct one_wire_query *owq);
-void _print_owq(struct one_wire_query *owq);
 
 #endif							/* OW_ONEWIREQUERY_H */

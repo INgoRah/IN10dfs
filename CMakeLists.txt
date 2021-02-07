@@ -15,14 +15,27 @@ find_package(I2C REQUIRED)
 include_directories(${FUSE_INCLUDE_DIR})
 include_directories(${I2C_INCLUDE_DIRS})
 include_directories(include)
-add_executable(owctl owctl_main.c src/ow_cache.c
-	src/ow_crc.c src/ow_dirblob.c  src/ow_ds2482.c
-	src/error.c src/ow_parseobject.c src/ow_parsename.c
-	src/ow_parse_sn.c src/ow_presence.c
-	src/ow_memblob.c src/ow_name.c
-	src/ow_read.c src/ow_regex.c
-	src/ow_search.c src/ow_tree.c
+add_executable(owctl
+	owctl_main.c
+	src/ow_cache.c
+	src/ow_crc.c
+	src/ow_dirblob.c src/ow_dir.c
+	src/ow_ds2482.c
+	src/error.c
+	src/ow_fs_items.c
+	src/ow_parseobject.c
+	src/ow_parsename.c
+	src/ow_parse_sn.c
+	src/ow_parseoutput.c
+	src/ow_presence.c
+	src/ow_memblob.c
+	src/ow_name.c
+	src/ow_none.c
+	src/ow_read.c
+	src/ow_regex.c
+	src/ow_search.c
+	src/ow_tree.c
 	src/ow_util.c
-	src/ow_dir.c)
+	src/ow_visibility.c	)
 
 target_link_libraries(owctl ${FUSE_LIBRARIES} pthread)
