@@ -66,9 +66,12 @@ static int MemblobIncrease(size_t length, struct memblob *mb);
 
 void MemblobClear(struct memblob *mb)
 {
-    if (mb->memory_storage)
+    if (!mb)
+        return;
+    if (mb->memory_storage) {
         free(mb->memory_storage);
-	mb->memory_storage = NULL;
+	    mb->memory_storage = NULL;
+    }
 	mb->troubled = 0 ;
 	mb->used = 0;
 	mb->allocated = 0;

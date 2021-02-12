@@ -57,6 +57,8 @@ void UT_setbit_U(unsigned int * U, int loc, int bit);
 #define  WRITE_FUNCTION( fname )  static int fname(struct one_wire_query * owq)
 #define  VISIBLE_FUNCTION( fname )  static enum e_visibility fname(const struct parsedname * pn);
 
+int TestConnection(const struct parsedname *pn);
+
 /* Pasename processing -- URL/path comprehension */
 int filetype_cmp(const void *name, const void *ex);
 int FS_ParsedName(const char *fn, struct parsedname *pn);
@@ -77,6 +79,8 @@ void FS_devicename(char *buffer, const size_t length, const uint8_t *sn, const s
 void FS_devicefind(const char *code, struct parsedname *pn);
 struct device * FS_devicefindhex(uint8_t f, struct parsedname *pn);
 
+const char *FS_DirName(const struct parsedname *pn);
+
 /* Utility functions */
 uint8_t CRC8(const uint8_t * bytes, const size_t length);
 uint8_t CRC8seeded(const uint8_t * bytes, const size_t length, const unsigned int seed);
@@ -92,5 +96,22 @@ void string2bytes(const char *str, uint8_t * b, const int bytes);
 void bytes2string(char *str, const uint8_t * b, const int bytes);
 
 void FS_LoadDirectoryOnly(struct parsedname *pn_directory, const struct parsedname *pn_original);
+
+/* High-level callback functions */
+int FS_dir(void (*dirfunc) (void *, const struct parsedname *), void *v, struct parsedname *pn);
+
+int FS_write(const char *path, const char *buf, const size_t size, const off_t offset);
+int FS_write_postparse(struct one_wire_query *owq);
+int FS_write_local(struct one_wire_query *owq);
+
+int FS_read(const char *path, char *buf, const size_t size, const off_t offset);
+int FS_read_postparse(struct one_wire_query *owq);
+int FS_read_fake(struct one_wire_query *owq);
+int FS_read_tester(struct one_wire_query *owq);
+int FS_r_aggregate_all(struct one_wire_query *owq);
+int FS_read_local( struct one_wire_query *owq);
+
+int FS_fstat(const char *path, struct stat *stbuf);
+int FS_fstat_postparse(struct stat *stbuf, const struct parsedname *pn);
 
 #endif							/* OW_FUNCTION_H */

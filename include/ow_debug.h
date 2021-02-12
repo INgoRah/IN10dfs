@@ -58,8 +58,6 @@ extern int log_available;
 
 #define FATAL_ERROR(...) fatal_error(__FILE__, __LINE__, __func__, __VA_ARGS__)
 
-#define Debug_OWQ(owq)        if (Globals.error_level>=e_err_debug) { _print_owq(owq); }
-
 #else /* not OW_DEBUG */
 
 #define LEVEL_DEFAULT(...)    do { } while (0)

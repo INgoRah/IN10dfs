@@ -15,7 +15,6 @@
 static int device_compare(const void *a, const void *b);
 static int file_compare(const void *a, const void *b);
 static void Device2Tree(const struct device *d, enum ePN_type type);
-static void External_Process(void);
 
 static int device_compare(const void *a, const void *b)
 {
@@ -141,97 +140,4 @@ void FS_devicefind(const char *code, struct parsedname *pn)
 	} else {
 		pn->selected_device = &UnknownDevice;
 	}
-}
-
-/* Need to lock struct global_namefind_struct since twalk requires global data -- can't pass void pointer */
-/* Except all *_detect routines are done sequentially, not concurrently */
-struct {
-	const struct family_node * f ;
-	int count ;
-} global_externalcount_struct;
-
-static void External_propertycount_action(const void *nodep, const VISIT which, const int depth)
-{
-#if 0
-	const struct property_node *p = *(struct property_node * const *) nodep;
-	(void) depth;
-
-	switch (which) {
-	case leaf:
-	case postorder:
-		if (strcmp(p->family, global_externalcount_struct.f->family) == 0 ) {
-			++global_externalcount_struct.count;
-		}
-	case preorder:
-	case endorder:
-		break;
-	}
-#endif
-}
-
-static void External_propertycopy_action(const void *nodep, const VISIT which, const int depth)
-{
-#if 0
-	const struct property_node *p = *(struct property_node * const *) nodep;
-	(void) depth;
-
-	switch (which) {
-	case leaf:
-	case postorder:
-		if (strcmp(p->family, global_externalcount_struct.f->family) == 0 ) {
-			memcpy(
-				& (global_externalcount_struct.f->dev.filetype_array[global_externalcount_struct.count]),
-				&(p->ft),
-				sizeof(struct filetype)
-			) ;
-			++global_externalcount_struct.count;
-		}
-	case preorder:
-	case endorder:
-		break;
-	}
-#endif
-}
-
-// First loop through families -- to count properties and allocate filetype array.
-static void External_family_action(const void *nodep, const VISIT which, const int depth)
-{
-#if 0
-	const struct family_node *p = *(struct family_node * const *) nodep;
-	struct family_node * non_const_f ; // to allow assignments
-	(void) depth;
-
- 	switch (which) {
-	case leaf:
-	case postorder:
-		// First count
-		global_externalcount_struct.f = p ;
-		global_externalcount_struct.count = 0 ;
-		twalk( property_tree, External_propertycount_action);
-
-		// Refind this node to allow assignment
-		non_const_f = Find_External_Family( p->family ) ;
-		non_const_f->dev.filetype_array = owcalloc(
-			global_externalcount_struct.count,
-			sizeof( struct filetype)
-		);
-		non_const_f->dev.count_of_filetypes = global_externalcount_struct.count ;
-
-		// Next copy
-		global_externalcount_struct.count = 0 ;
-		twalk( property_tree, External_propertycopy_action);
-
-		// Finally add to tree
-		Device2Tree( & (p->dev), ePN_real);
-		break ;
-	case preorder:
-	case endorder:
-		break;
-	}
-#endif
-}
-
-static void External_Process(void)
-{
-	//twalk(family_tree, External_family_action);
 }

@@ -31,12 +31,10 @@ static ZERO_OR_ERROR FS_alarmdir(void (*dirfunc) (void *, const struct parsednam
 static ZERO_OR_ERROR FS_typedir(void (*dirfunc) (void *, const struct parsedname * const), void *v, const struct parsedname *pn_type_directory);
 static ZERO_OR_ERROR FS_realdir(void (*dirfunc) (void *, const struct parsedname * const), void *v, const struct parsedname *pn2, uint32_t * flags);
 static ZERO_OR_ERROR FS_cache_or_real(void (*dirfunc) (void *, const struct parsedname * const), void *v, const struct parsedname *pn2, uint32_t * flags);
-static ZERO_OR_ERROR FS_busdir(void (*dirfunc) (void *, const struct parsedname *), void *v, const struct parsedname *pn_directory);
 
 static void FS_stype_dir(void (*dirfunc) (void *, const struct parsedname *), void *v, const struct parsedname *pn_root_directory);
 static void FS_interface_dir(void (*dirfunc) (void *, const struct parsedname *), void *v, const struct parsedname *pn_root_directory);
 static void FS_alarm_entry(void (*dirfunc) (void *, const struct parsedname *), void *v, const struct parsedname *pn_root_directory);
-static void FS_simultaneous_entry(void (*dirfunc) (void *, const struct parsedname *), void *v, const struct parsedname *pn_root_directory);
 static void FS_uncached_dir(void (*dirfunc) (void *, const struct parsedname *), void *v, const struct parsedname *pn_root_directory);
 static ZERO_OR_ERROR FS_dir_plus(void (*dirfunc) (void *, const struct parsedname *), void *v, uint32_t * flags, const struct parsedname *pn_directory, const char *file) ;
 
@@ -198,13 +196,6 @@ static void FS_uncached_dir(void (*dirfunc) (void *, const struct parsedname *),
 	FS_dir_plus(dirfunc, v, &ignoreflag, pn_root_directory, "uncached");
 }
 
-/* Some temperature and voltage measurements can be triggered globally for considerable speed improvements */
-static void FS_simultaneous_entry(void (*dirfunc) (void *, const struct parsedname *), void *v, const struct parsedname *pn_root_directory)
-{
-	uint32_t ignoreflag = 0 ;
-	FS_dir_plus(dirfunc, v, &ignoreflag, pn_root_directory, "simultaneous");
-}
-
 /* path is the path which "pn_directory" parses */
 /* FS_dir_all_connections produces the data that can vary: device lists, etc. */
 
@@ -218,78 +209,6 @@ struct dir_all_connections_struct {
 	ZERO_OR_ERROR ret;
 };
 
-/* Embedded function */
-/* Directory on a particular port's channel */
-static void FS_dir_all_connections_callback_conn( struct dir_all_connections_struct * dacs )
-{
-#if 0
-	SetKnownBus(dacs->cin->index, &(dacs->pn_directory) );
-
-	if ( BAD(TestConnection( &(dacs->pn_directory) )) ) {	// reconnect ok?
-		dacs->ret = -ECONNABORTED;
-	} else if (BusIsServer(dacs->pn_directory.selected_connection)) {	/* is this a remote bus? */
-		//printf("FS_dir_all_connections: Call ServerDir %s\n", dacs->pn_directory->path);
-		dacs->ret = ServerDir(dacs->dirfunc, dacs->v, &(dacs->pn_directory), &(dacs->flags));
-	} else if (IsAlarmDir( &(dacs->pn_directory) ) ) {	/* root or branch directory -- alarm state */
-		//printf("FS_dir_all_connections: Call FS_alarmdir %s\n", dacs->pn_directory->path);
-		dacs->ret = FS_alarmdir(dacs->dirfunc, dacs->v, &(dacs->pn_directory) );
-	} else {
-		dacs->ret = FS_cache_or_real(dacs->dirfunc, dacs->v, &(dacs->pn_directory), &(dacs->flags));
-	}
-
-	// next channel
-	dacs->cin = dacs->cin->next ;
-	FS_dir_all_connections_callback_conn( dacs ) ;
-#endif
-}
-
-/* Callback (thread) once per port */
-/* Will need  to probe each connection (channel) on this port */
-static void *FS_dir_all_connections_callback_port(void *v)
-{
-#if 0
-	struct dir_all_connections_struct *dacs = v;
-	struct dir_all_connections_struct dacs_next ;
-	pthread_t thread;
-	int threadbad = 0;
-
-	if ( dacs->pin == NULL ) {
-		return VOID_RETURN;
-	}
-
-	// set up structure
-	dacs_next.pin = dacs->pin->next ;
-
-	if ( dacs_next.pin == NULL ) {
-		threadbad = 1 ;
-	} else {
-		dacs_next.dirfunc = dacs->dirfunc ;
-		memcpy( &(dacs_next.pn_directory), &(dacs->pn_directory), sizeof(struct parsedname));	// shallow copy
-		dacs_next.v = dacs->v ;
-		dacs_next.flags = dacs->flags ;
-		dacs_next.ret = dacs->ret ;
-		threadbad = pthread_create(&thread, DEFAULT_THREAD_ATTR, FS_dir_all_connections_callback_port, (void *) (&dacs_next));
-	}
-
-	// First channel
-	dacs->cin = dacs->pin->first ;
-	FS_dir_all_connections_callback_conn( v ) ;
-
-	//printf("FS_dir_all_connections4 pid=%ld adapter=%d ret=%d\n",pthread_self(), dacs->pn_directory->selected_connection->index,ret);
-	/* See if next bus was also queried */
-	if (threadbad == 0) {		/* was a thread created? */
-		if (pthread_join(thread, NULL)!= 0) {
-			return VOID_RETURN ;			/* cannot join, so return only this result */
-		}
-		if (dacs_next.ret >= 0) {
-			dacs->ret = dacs_next.ret;	/* is it an error return? Then return this one */
-		} else {
-			dacs->flags |= dacs_next.flags ;
-		}
-	}
-#endif
-	return VOID_RETURN;
-}
 
 static ZERO_OR_ERROR
 FS_dir_all_connections(void (*dirfunc) (void *, const struct parsedname *), void *v, const struct parsedname *pn_directory, uint32_t * flags)
@@ -689,20 +608,6 @@ static ZERO_OR_ERROR FS_typedir(void (*dirfunc) (void *, const struct parsedname
 	twalk(Tree[pn_type_directory->type], Typediraction);
 
 	// Ignore dangling pointer warning of s_pn_type_device; typedir_action_struct not used outside of this fn
-
-	return 0;
-}
-
-/* Show the bus entries */
-static ZERO_OR_ERROR FS_busdir(void (*dirfunc) (void *, const struct parsedname *), void *v, const struct parsedname *pn_directory)
-{
-	char bus[OW_FULLNAME_MAX];
-	uint32_t ignoreflag = 0 ;
-
-	for (int cin = 0 ; cin != 8; cin++) {
-		snprintf(bus, OW_FULLNAME_MAX, "bus.%d", cin);
-		FS_dir_plus(dirfunc, v, &ignoreflag, pn_directory, bus);
-	}
 
 	return 0;
 }

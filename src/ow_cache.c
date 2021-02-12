@@ -141,7 +141,6 @@ static enum cache_task_return Cache_Get_Common(void *data, size_t * dsize, time_
 static enum cache_task_return Cache_Get_Common_Dir(struct dirblob *db, time_t * duration, const struct tree_node *tn);
 static enum cache_task_return Cache_Get_Persistent(void *data, size_t * dsize, time_t * duration, const struct tree_node *tn);
 
-static GOOD_OR_BAD Cache_Get_Simultaneous(const struct internal_prop *ip, struct one_wire_query *owq) ;
 static GOOD_OR_BAD Cache_Get_Internal(void *data, size_t * dsize, const struct internal_prop *ip, const struct parsedname *pn);
 static GOOD_OR_BAD Cache_Get_Strict(void *data, size_t dsize, const struct parsedname *pn);
 
@@ -337,7 +336,6 @@ GOOD_OR_BAD OWQ_Cache_Add(const struct one_wire_query *owq)
 		case ft_integer:
 		case ft_unsigned:
 		case ft_yesno:
-		case ft_date:
 		case ft_float:
 		case ft_pressure:
 		case ft_temperature:
@@ -361,7 +359,6 @@ GOOD_OR_BAD OWQ_Cache_Add(const struct one_wire_query *owq)
 		case ft_integer:
 		case ft_unsigned:
 		case ft_yesno:
-		case ft_date:
 		case ft_float:
 		case ft_pressure:
 		case ft_temperature:
@@ -640,7 +637,6 @@ GOOD_OR_BAD OWQ_Cache_Get(struct one_wire_query *owq)
 		case ft_integer:
 		case ft_unsigned:
 		case ft_yesno:
-		case ft_date:
 		case ft_float:
 		case ft_pressure:
 		case ft_temperature:
@@ -663,7 +659,6 @@ GOOD_OR_BAD OWQ_Cache_Get(struct one_wire_query *owq)
 		case ft_integer:
 		case ft_unsigned:
 		case ft_yesno:
-		case ft_date:
 		case ft_float:
 		case ft_pressure:
 		case ft_temperature:
@@ -844,56 +839,6 @@ GOOD_OR_BAD Cache_Get_Simul_Time(const struct internal_prop *ip, time_t * dwell_
 	// back-compute dwell time
 	dwell_time[0] = TimeOut(ip->change) - duration ;
 	return gbGOOD ;
-}
-
-/* Test for a simultaneous property
- * return true if simultaneous is the prefered method
- * bad if no simultaneous, or it's not the best
-*/
-static GOOD_OR_BAD Cache_Get_Simultaneous(const struct internal_prop *ip, struct one_wire_query *owq)
-{
-	struct tree_node tn;
-	time_t duration ;
-	time_t time_left ;
-	time_t dwell_time_simul ;
-	struct parsedname * pn = PN(owq) ;
-	size_t dsize = sizeof(union value_object) ;
-
-	time_left = duration = TimeOut(pn->selected_filetype->change);
-	if (duration <= 0) {
-		// probably "uncached" requested
-		return gbBAD;
-	}
-
-	LoadTK( pn->sn, pn->selected_filetype, pn->extension, &tn ) ;
-
-	if (Cache_Get_Common(&OWQ_val(owq), &dsize, &time_left, &tn) == 0) {
-		// valid cached primary data -- see if a simultaneous conversion should be used instead
-		time_t dwell_time_data = duration - time_left ;
-
-		if ( BAD( Cache_Get_Simul_Time( ip, &dwell_time_simul, pn)) ) {
-			// Simul not found or timed out
-			LEVEL_DEBUG("Simultaneous conversion not found.") ;
-			OWQ_SIMUL_CLR(owq) ;
-			return gbGOOD ;
-		}
-		if ( dwell_time_simul < dwell_time_data ) {
-			LEVEL_DEBUG("Simultaneous conversion is newer than previous reading.") ;
-			OWQ_SIMUL_SET(owq) ;
-			return gbBAD ; // Simul is newer
-		}
-		// Cached data is newer, so use it
-		OWQ_SIMUL_CLR(owq) ;
-		return gbGOOD ;
-	}
-	// fall through -- no cached primary data
-	if ( BAD( Cache_Get_Simul_Time( ip, &dwell_time_simul, pn)) ) {
-		// no simultaneous either
-		OWQ_SIMUL_CLR(owq) ;
-		return gbBAD ;
-	}
-	OWQ_SIMUL_SET(owq) ;
-	return gbBAD ; // Simul is newer
 }
 
 /* Look in caches, 0=found and valid, 1=not or uncachable in the first place */

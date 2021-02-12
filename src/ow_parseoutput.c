@@ -15,7 +15,6 @@ $ID: $
 static size_t OWQ_parse_output_integer(struct one_wire_query *owq);
 static size_t OWQ_parse_output_unsigned(struct one_wire_query *owq);
 static size_t OWQ_parse_output_float(struct one_wire_query *owq);
-static size_t OWQ_parse_output_date(struct one_wire_query *owq);
 static size_t OWQ_parse_output_yesno(struct one_wire_query *owq);
 static size_t OWQ_parse_output_ascii(struct one_wire_query *owq);
 static size_t OWQ_parse_output_array_with_commas(struct one_wire_query *owq);
@@ -36,7 +35,7 @@ Can break down cases into:
 */
 
 /* Global temperature scale */
-enum temp_type { temp_celsius, temp_fahrenheit, temp_kelvin, temp_rankine};
+enum temp_type { temp_celsius, temp_fahrenheit, temp_kelvin, };
 
 const char *tempscale[4] = {
 	"Celsius",
@@ -60,8 +59,6 @@ float Temperature(float C, const struct parsedname * pn)
 		return 1.8 * C + 32.;
 	case temp_kelvin:
 		return C + 273.15;
-	case temp_rankine:
-		return 1.8 * C + 32. + 459.67;
 	default:					/* Centigrade */
 		return C;
 	}
@@ -117,8 +114,6 @@ size_t OWQ_parse_output(struct one_wire_query *owq)
 		case ft_tempgap:
 		case ft_float:
 			return OWQ_parse_output_float(owq);
-		case ft_date:
-			return OWQ_parse_output_date(owq);
 		case ft_vascii:
 		case ft_alias:
 		case ft_ascii:
@@ -211,20 +206,6 @@ static size_t OWQ_parse_output_float(struct one_wire_query *owq)
 		return -EMSGSIZE;
 	}
 	return OWQ_parse_output_offset_and_size(c, len, owq);
-}
-
-static size_t OWQ_parse_output_date(struct one_wire_query *owq)
-{
-#if 0
-	char c[PROPERTY_LENGTH_DATE + 2];
-	if (OWQ_size(owq) < PROPERTY_LENGTH_DATE) {
-		return -EMSGSIZE;
-	}
-	ctime_r(&OWQ_D(owq), c);
-	return OWQ_parse_output_offset_and_size(c, PROPERTY_LENGTH_DATE, owq);
-#else
-	return 0;
-#endif
 }
 
 static size_t OWQ_parse_output_yesno(struct one_wire_query *owq)

@@ -221,14 +221,7 @@ static int FS_ParsedName_anywhere(const char *path, enum parse_pass remote_statu
 			switch ( pn->type ) {
 				case ePN_interface:
 					// /interface is interesting -- it's actually a property of the calling server
-					if ( SpecifiedVeryRemoteBus(pn) ) {
-						// veryremote -> remote
-						pn->state &= ~ePS_busveryremote ;
-					} else if ( SpecifiedRemoteBus(pn) ) {
-						// remote -> local
-						pn->state &= ~ePS_busremote ;
-						pn->state |= ePS_buslocal ;
-					}
+					pn->state |= ePS_buslocal ;
 					break ;
 
 				case ePN_root:
@@ -237,10 +230,6 @@ static int FS_ParsedName_anywhere(const char *path, enum parse_pass remote_statu
 					break ;
 				default:
 					// everything else gets promoted so directories aren't added on
-					if ( SpecifiedRemoteBus(pn) ) {
-						// very remote
-						pn->state |= ePS_busveryremote;
-					}
 					break ;
 			}
 			//printf("%s: Parse %s after  corrections: %.4X -- state = %d\n\n",(back_from_remote)?"BACK":"FORE",pn->path,pn->state,pn->type) ;
@@ -411,9 +400,8 @@ static enum parse_enum set_type( enum ePN_type epntype, struct parsedname * pn )
 {
 	if (SpecifiedLocalBus(pn)) {
 		return parse_error;
-	} else if ( ! SpecifiedRemoteBus(pn) ) {
-		pn->type |= ePS_busanylocal;
 	}
+
 	pn->type = epntype;
 	return parse_nonreal;
 }

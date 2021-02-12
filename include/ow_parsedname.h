@@ -195,13 +195,12 @@ struct parsedname {
 
 #define ShouldReturnBusList(ppn)  ( ((ppn)->control_flags & SHOULD_RETURN_BUS_LIST) )
 
-#define SpecifiedVeryRemoteBus(pn)     ((((pn)->state) & ePS_busveryremote) != 0 )
-#define SpecifiedRemoteBus(pn)         ((((pn)->state) & ePS_busremote) != 0 )
 #define SpecifiedLocalBus(pn)          ((((pn)->state) & ePS_buslocal) != 0 )
-
-#define SpecifiedBus(pn)          ( SpecifiedLocalBus(pn) || SpecifiedRemoteBus(pn) )
+#define SpecifiedBus(pn)          ((((pn)->state) & ePS_buslocal) != 0 )
 
 #define RootNotBranch(pn)         (((pn)->ds2409_depth)==0)
+
+int SetKnownBus(int bus_number, struct parsedname * pn);
 
 enum parse_enum {
 	parse_first,

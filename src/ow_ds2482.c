@@ -64,21 +64,6 @@
 #define DS2482_1wire_write_usec   530, 585
 #define DS2482_1wire_triplet_usec   198, 219
 
-int UT_getbit(const uint8_t * buf, int loc)
-{
-	// devide location by 8 to get byte
-	return (((buf[loc >> 3]) >> (loc & 0x7)) & 0x01);
-}
-
-void UT_setbit(uint8_t * buf, int loc, int bit)
-{
-	if (bit) {
-		buf[loc >> 3] |= 0x01 << (loc & 0x7);
-	} else {
-		buf[loc >> 3] &= ~(0x01 << (loc & 0x7));
-	}
-}
-
 /* All the rest of the program sees is the DS2482_detect and the entry in iroutines */
 /* Open a DS2482 */
 /* Top level detect routine */

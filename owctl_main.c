@@ -1,16 +1,16 @@
-#define FUSE_USE_VERSION 26
-
 #include <stdio.h>
 #include <fuse.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 #include "i2c-dev.h"
 
 #include "ow.h"
+#include "owfs.h"
 #include "ow_search.h"
 #include "ow_functions.h"
 
@@ -32,64 +32,6 @@ struct global Globals = {
 
 int fd;
 uint8_t devs[MAX_BUS][MAX_DEVS][8];
-
-/* Length of a property element */
-/* based on property type in most cases, except ascii and binary, which are explicitly sized */
-size_t FileLength(const struct parsedname *pn)
-{
-	if (pn->type == ePN_structure) {
-		return PROPERTY_LENGTH_STRUCTURE;	/* longest seem to be /1wire/structure/0F/memory.ALL (28 bytes) so far... */
-	}
-	/* directory ? */
-	if (IsDir(pn)) {
-		return PROPERTY_LENGTH_DIRECTORY;
-	}
-
-	switch (pn->selected_filetype->format) {
-	case ft_yesno:
-		return PROPERTY_LENGTH_YESNO;
-	case ft_integer:
-		return PROPERTY_LENGTH_INTEGER;
-	case ft_unsigned:
-		return PROPERTY_LENGTH_UNSIGNED;
-	case ft_float:
-		return PROPERTY_LENGTH_FLOAT;
-	case ft_pressure:
-		return PROPERTY_LENGTH_PRESSURE;
-	case ft_temperature:
-		return PROPERTY_LENGTH_TEMP;
-	case ft_tempgap:
-		return PROPERTY_LENGTH_TEMPGAP;
-	case ft_date:
-		return PROPERTY_LENGTH_DATE;
-	case ft_bitfield:
-		return (pn->extension == EXTENSION_BYTE) ? PROPERTY_LENGTH_UNSIGNED : PROPERTY_LENGTH_YESNO;
-	case ft_vascii:			// not used anymore here...
-	case ft_alias:
-	case ft_ascii:
-	case ft_binary:
-	default:
-		return pn->selected_filetype->suglen;
-	}
-}
-
-/* Length of file based on filetype and extension */
-size_t FullFileLength(const struct parsedname * pn)
-{
-	size_t entry_length = FileLength(pn);
-	if (pn->type == ePN_structure) {
-		return entry_length;
-	} else if (pn->extension != EXTENSION_ALL) {
-		return entry_length;
-	} else {
-		size_t elements = pn->selected_filetype->ag->elements;
-		if (pn->selected_filetype->format == ft_binary) {
-			return entry_length * elements;
-		} else {				// add room for commas
-			return (entry_length + 1) * elements - 1;
-		}
-	}
-}
 
 static int getattr_callback(const char *path, struct stat *stbuf) {
 	memset(stbuf, 0, sizeof(struct stat));
@@ -139,7 +81,7 @@ static int getattr_callback(const char *path, struct stat *stbuf) {
 
 static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
     off_t offset, struct fuse_file_info *fi) {
-	int i, j, bus = 0;
+	int i, bus = 0;
 
 	(void) offset;
 	(void) fi;
@@ -203,7 +145,7 @@ static int read_callback(const char *path, char *buf, size_t size, off_t offset,
 		sprintf (buf, "0x%02X\n", res);
 		return 5;
 	}
-
+#if 0
 	int return_size ;
 	struct one_wire_query struct_owq;
 	struct one_wire_query *owq = &struct_owq;
@@ -233,7 +175,7 @@ static int read_callback(const char *path, char *buf, size_t size, off_t offset,
 	OWQ_destroy(owq);
 
 	return return_size ;
-
+#endif
 	return -ENOENT;
 }
 
@@ -308,7 +250,7 @@ int owSearch()
 static int write_callback(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *flags)
 {
 	if (strcmp(path, "/status/mode") == 0) {
-		int mode;
+		unsigned int mode;
 
 		if (!sscanf(buf, "0x%X\n", &mode))
 			sscanf(buf, "%d\n", &mode);
@@ -317,7 +259,7 @@ static int write_callback(const char *path, const char *buf, size_t size, off_t 
 		return size;
 	}
 	if (strcmp(path, "/status/cmd") == 0) {
-		int mode;
+		unsigned int mode;
 
 		if (!sscanf(buf, "0x%X\n", &mode))
 			sscanf(buf, "%d\n", &mode);
@@ -334,40 +276,25 @@ static int write_callback(const char *path, const char *buf, size_t size, off_t 
 	return size;
 }
 
-static int stat_cb (const char *path, struct statvfs *stat)
-{
-	memset(stat, 0, sizeof(struct statvfs));
-	return 0;
-}
-
-static int truncate_cb (const char *path, long long int size/*,	 struct fuse_file_info *fi*/)
-{
-	(void) size;
-	/*if(strcmp(path, "/") != 0)
-		return -ENOENT;
-	*/
-	return size;
-}
-
 static struct fuse_operations fuse_example_operations = {
-	.getattr = getattr_callback,
-	.truncate	= truncate_cb,
-	.open = open_callback,
-	.read = read_callback,
-	.write = write_callback,
-	.readdir = readdir_callback,
+	.getattr = FS_fstat /*getattr_callback*/,
+	.getdir = FS_getdir,
+	.truncate = FS_truncate,
+	.statfs = NULL,
+	.read = CB_read,
+	.write = CB_write,
+	.readlink = NULL,
+	.open = FS_open,
+	.release = FS_release,
+	.chmod = FS_chmod,
+	.chown = FS_chown,
 };
-
-#include "ow_search.h"
-extern int DS2482_channel_select(int fd, int chan);
-extern enum search_status DS2482_next_both(struct device_search *ds, int fd);
-extern GOOD_OR_BAD DS2482_send(int fd, const uint8_t wr);
-extern int DS2482_reset(int fd);
 
 int main(int argc, char *argv[])
 {
-	int ret, adr;
-
+	int ret;
+#if 0
+	int adr;
 	fd = open("/dev/i2c-0", O_RDWR);
 	if (fd < 0) {
 		printf("I2c device open error (%s)\n", strerror(errno));
@@ -378,21 +305,7 @@ int main(int argc, char *argv[])
 		printf("Cound not set trial i2c address to %.2X\n", adr);
 		close(fd);
 		return -1;
-	} else {
-		struct device_search ds;
-
-		printf("Found an i2c device at address %.2X\n", adr);
-		DS2482_channel_select(fd, 0);
-		ds.LastDevice = 0;
-		ds.search = _1W_SEARCH_ROM;
-		do {
-			DS2482_reset(fd);
-			DS2482_send(fd, _1W_SEARCH_ROM);
-			DS2482_next_both(&ds, fd);
-			LEVEL_DEFAULT("SN found: " SNformat, SNvar(ds.sn));
-		} while(ds.LastDevice == 0);
 	}
-
 	adr = 0x2f;
 	if (ioctl(fd, I2C_SLAVE, adr) < 0) {
 		printf("Cound not set trial i2c address to %.2X\n", adr);
@@ -402,8 +315,12 @@ int main(int argc, char *argv[])
 		printf("Found an i2c device at address %.2X\n", adr);
 	}
 	close(fd);
-	//owSearch();
+#endif
+#if FUSE_VERSION > 25
 	ret = fuse_main(argc, argv, &fuse_example_operations, NULL);
+#else							/* FUSE_VERSION <= 25 */
+	ret = fuse_main(argc, argv, &fuse_example_operations);
+#endif							/* FUSE_VERSION <= 25 */
 
 	return ret;
 }

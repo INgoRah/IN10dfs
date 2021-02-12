@@ -98,7 +98,6 @@ enum ft_format {
 	ft_vascii,					// variable length ascii -- must be read and measured.
 	ft_binary,
 	ft_yesno,
-	ft_date,
 	ft_bitfield,
 	ft_temperature,
 	ft_tempgap,
