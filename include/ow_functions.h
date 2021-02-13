@@ -46,11 +46,8 @@
 #define BYTE_INVERSE(x)     BYTE_MASK((x) ^ 0xFF)
 #define LOW_HIGH_ADDRESS(x)         BYTE_MASK(x),BYTE_MASK((x)>>8)
 
-int UT_getbit(const uint8_t * buf, int loc);
-void UT_setbit(uint8_t * buf, int loc, int bit);
-
-int UT_getbit_U(unsigned int U, int loc);
-void UT_setbit_U(unsigned int * U, int loc, int bit);
+/* Initial sorting or the device and filetype lists */
+void DeviceSort(void);
 
 /* Prototypes */
 #define  READ_FUNCTION( fname )  static int fname(struct one_wire_query * owq)
@@ -95,6 +92,12 @@ void num2string(char *s, const uint8_t n);
 void string2bytes(const char *str, uint8_t * b, const int bytes);
 void bytes2string(char *str, const uint8_t * b, const int bytes);
 
+int UT_getbit(const uint8_t * buf, int loc);
+void UT_setbit(uint8_t * buf, int loc, int bit);
+
+int UT_getbit_U(unsigned int U, int loc);
+void UT_setbit_U(unsigned int * U, int loc, int bit);
+
 void FS_LoadDirectoryOnly(struct parsedname *pn_directory, const struct parsedname *pn_original);
 
 /* High-level callback functions */
@@ -113,5 +116,14 @@ int FS_read_local( struct one_wire_query *owq);
 
 int FS_fstat(const char *path, struct stat *stbuf);
 int FS_fstat_postparse(struct stat *stbuf, const struct parsedname *pn);
+
+int DS2482_detect(int *fd);
+int DS2482_channel_select(int fd, int chan);
+
+struct device_search;
+
+enum search_status { search_good, search_done, search_error } ;
+
+enum search_status DS2482_next_both(struct device_search *ds, int fd);
 
 #endif							/* OW_FUNCTION_H */

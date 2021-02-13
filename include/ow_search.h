@@ -55,8 +55,6 @@
 
 #include "ow_parsedname.h"
 
-enum search_status { search_good, search_done, search_error } ;
-
 struct device_search {
 	int LastDiscrepancy;		// for search
 	int LastDevice;				// for search

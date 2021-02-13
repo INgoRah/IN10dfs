@@ -43,7 +43,6 @@ Can break down cases into:
 /* ---------------------------------------------- */
 /* Filesystem callback functions                  */
 /* ---------------------------------------------- */
-
 int FS_read(const char *path, char *buf, const size_t size, const off_t offset)
 {
 	int read_or_error;

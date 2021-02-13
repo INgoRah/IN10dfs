@@ -14,7 +14,7 @@
   Addison-Wesley Professional Computing Series
   Addison-Wesley, Boston 2003
   http://www.unpbook.com
-  * 
+  *
   * Although it's been considerably modified over time -- don't blame the authors''
 */
 
@@ -35,7 +35,7 @@ int log_available = 0;
 
 void err_msg(enum e_err_type errnoflag, enum e_err_level level, const char * file, int line, const char * func, const char *fmt, ...)
 {
-	int errno_save = (errnoflag==e_err_type_error)?errno:0;		/* value caller might want printed */
+	int errno_save = (errnoflag==e_err_type_error) ? errno:0;		/* value caller might want printed */
 	char format[MAXLINE + 3];
 	char buf[MAXLINE + 3];
 	enum e_err_print sl;		// 2=console 1=syslog
@@ -61,6 +61,7 @@ void err_msg(enum e_err_type errnoflag, enum e_err_level level, const char * fil
 		level_string = "  DEBUG: ";
 		break;
 	}
+	printf ("%s%s:%d (%s)\n", level_string, file, line, func);
 
 	/* Print where? */
 	switch (Globals.error_print) {
@@ -73,7 +74,7 @@ void err_msg(enum e_err_type errnoflag, enum e_err_level level, const char * fil
 			default:
 				sl = e_err_print_console;
 				break ;
-		}		
+		}
 		break;
 	case e_err_print_syslog:
 		sl = e_err_print_syslog;
@@ -82,21 +83,22 @@ void err_msg(enum e_err_type errnoflag, enum e_err_level level, const char * fil
 		sl = e_err_print_console;
 		break;
 	default:
+		printf ("error_print=%d, daemon=%d %s\n", Globals.error_print, Globals.daemon_status, buf);
+
 		return;
 	}
 	va_start(ap, fmt);
 	err_format( format, errno_save, level_string, file, line, func, fmt) ;
 
-	UCLIBCLOCK;
 	/* Create output string */
 #ifdef    HAVE_VSNPRINTF
 	vsnprintf(buf, MAXLINE, format, ap);	/* safe */
 #else
 	vsprintf(buf, format, ap);		/* not safe */
 #endif
-	UCLIBCUNLOCK;
 	va_end(ap);
 
+	sl = e_err_print_console;
 	if (sl == e_err_print_syslog) {	/* All output to syslog */
 		if (!log_available) {
 			openlog("OWFS", LOG_PID, LOG_DAEMON);
@@ -153,7 +155,7 @@ void fatal_error(const char * file, int line, const char * func, const char *fmt
 					default:
 						sl = e_err_print_console;
 						break ;
-				}		
+				}
 				break;
 			case e_err_print_syslog:
 				sl = e_err_print_syslog;
@@ -204,7 +206,6 @@ void fatal_error(const char * file, int line, const char * func, const char *fmt
 
 static void err_format(char * format, int errno_save, const char * level_string, const char * file, int line, const char * func, const char * fmt)
 {
-	UCLIBCLOCK;
 	/* Create output string */
 #ifdef    HAVE_VSNPRINTF
 	if (errno_save) {
@@ -219,7 +220,6 @@ static void err_format(char * format, int errno_save, const char * level_string,
 		sprintf(format, "%s%s:%s(%d) %s", level_string,file,func,line,fmt);		/* not safe */
 	}
 #endif
-	UCLIBCUNLOCK;
 	/* Add CR at end */
 }
 

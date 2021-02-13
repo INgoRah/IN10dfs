@@ -41,33 +41,8 @@
 #define FUSEFLAG int
 #endif							/* FUSE_MAJOR_VERSION */
 
-/* Deprecated, use readdir() instead
-	int (*getdir) (const char *, fuse_dirh_t, fuse_dirfil_t);
-*/
 int FS_getdir(const char *path, fuse_dirh_t h, fuse_dirfil_t filler);
-/** Read directory
- *
- * This supersedes the old getdir() interface.  New applications
- * should use this.
- *
- * The filesystem may choose between two modes of operation:
- *
- * 1) The readdir implementation ignores the offset parameter, and
- * passes zero to the filler function's offset.  The filler
- * function will not return '1' (unless an error happens), so the
- * whole directory is read in a single readdir operation.  This
- * works just like the old getdir() method.
- *
- * 2) The readdir implementation keeps track of the offsets of the
- * directory entries.  It uses the offset parameter and always
- * passes non-zero offset to the filler function.  When the buffer
- * is full (or an error happens) the filler function will return
- * '1'.
- *
- * Introduced in version 2.3
-int (*readdir) (const char *, void *, fuse_fill_dir_t, off_t,
-		struct fuse_file_info *);
-*/
+
 static int FS_utime(const char *path, struct utimbuf *buf);
 
 #if FUSE_VERSION > 25
@@ -79,32 +54,35 @@ static void *FS_init(void);
 /* Change in statfs definition for newer FUSE versions */
 #define FS_statfs   NULL
 
-#if 0
 struct fuse_operations owfs_oper = {
-  getattr:FS_fstat,
-  readlink:NULL,
-  getdir:FS_getdir,
-  mknod:NULL,
-  mkdir:NULL,
-  symlink:NULL,
-  unlink:NULL,
-  rmdir:NULL,
-  rename:NULL,
-  link:NULL,
-  chmod:FS_chmod,
-  chown:FS_chown,
-  truncate:FS_truncate,
-  utime:FS_utime,
-  open:FS_open,
-  read:CB_read,
-  write:CB_write,
-  statfs:FS_statfs,
-  release:FS_release,
+  .getattr = FS_fstat,
+  .readlink = NULL,
+  .getdir = FS_getdir,
+  .mknod = NULL,
+  .mkdir = NULL,
+  .symlink = NULL,
+  .unlink = NULL,
+  .rmdir = NULL,
+  .rename = NULL,
+  .link = NULL,
+  .chmod = FS_chmod,
+  .chown = FS_chown,
+  .truncate = FS_truncate,
+  .utime = FS_utime,
+  .open = FS_open,
+#if FUSE_VERSION > 21
+  .read = CB_read,
+  .write = CB_write,
+#else
+  .read = FS_read,
+  .write = FS_write,
+#endif
+  .statfs = FS_statfs,
+  .release = FS_release,
 #if FUSE_VERSION > 22
-  init:FS_init,
+  .init = FS_init,
 #endif							/* FUSE_VERSION > 22 */
 };
-#endif
 
 /* ---------------------------------------------- */
 /* Filesystem callback functions                  */
@@ -191,8 +169,12 @@ int FS_getdir(const char *path, fuse_dirh_t h, fuse_dirfil_t filler)
 	int return_code;
 
 	LEVEL_CALL("GETDIR path=%s", SAFESTRING(path));
-	if (FS_ParsedName(path, &pn) != 0)
+	// need to set fd??
+	// pn->fd = fd;
+	if (FS_ParsedName(path, &pn) != 0) {
+		printf ("parsedname err\n");
 		return -1;
+	}
 
 	if (pn.selected_filetype == NO_FILETYPE) {
 		struct getdirstruct gds = { h, filler, };
@@ -223,6 +205,7 @@ static int FS_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 }
 #endif
 
+#if FUSE_VERSION > 21
 int CB_read(const char *path, char *buffer, size_t size, off_t offset, struct fuse_file_info *flags)
 {
 	(void) flags;
@@ -260,6 +243,7 @@ int CB_write(const char *path, const char *buffer, size_t size, off_t offset, st
 	(void) flags;
 	return FS_write(path, buffer, size, offset);
 }
+#endif
 
 /* Change in statfs definition for newer FUSE versions */
 #ifdef FUSE1X

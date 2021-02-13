@@ -150,8 +150,8 @@ enum deviceformat { fdi, fi, fdidc, fdic, fidc, fic };
 #define RETURN_CODE_RETURN(rc)	do { int i ; RETURN_CODE_SET_SCALAR(i,rc) ; return -i; } while(0) ;
 #endif
 
-#define UCLIBCLOCK			return_ok()
-#define UCLIBCUNLOCK		return_ok()
+#define UCLIBCLOCK			do { } while(0)
+#define UCLIBCUNLOCK		do { } while(0)
 
 #define BUS_RESET_OK    0
 #define BUS_RESET_SHORT 1

@@ -147,7 +147,7 @@ void FS_ParsedName_destroy(struct parsedname *pn)
 	if (!pn) {
 		return;
 	}
-	LEVEL_DEBUG("%s", SAFESTRING(pn->path));
+	//LEVEL_DEBUG("%s", SAFESTRING(pn->path));
 	CONNIN_RUNLOCK ;
 	//Detail_Free( pn ) ;
 	SAFEFREE(pn->sparse_name);
@@ -188,7 +188,7 @@ static int FS_ParsedName_anywhere(const char *path, enum parse_pass remote_statu
 	// Even on normal glibc, errno isn't cleared on good system calls
 	errno = 0;
 
-	LEVEL_CALL("path=[%s]", SAFESTRING(path));
+	//LEVEL_CALL("path=[%s]", SAFESTRING(path));
 
 	ret = FS_ParsedName_setup(pp, path, pn);
 	if (ret != 0)
@@ -216,7 +216,7 @@ static int FS_ParsedName_anywhere(const char *path, enum parse_pass remote_statu
 				continue;
 			}
 
-			//printf("%s: Parse %s before corrections: %.4X -- state = %d\n",(back_from_remote)?"BACK":"FORE",pn->path,pn->state,pn->type) ;
+			printf("%s: Parse before corrections: %.4X -- state = %d\n",pn->path,pn->state,pn->type) ;
 			// Play with remote levels
 			switch ( pn->type ) {
 				case ePN_interface:
@@ -307,6 +307,8 @@ static int FS_ParsedName_anywhere(const char *path, enum parse_pass remote_statu
 	}
 }
 
+extern int fd;
+
 /* Initial memory allocation and pn setup */
 static int FS_ParsedName_setup(struct parsedname_pointers *pp, const char *path, struct parsedname *pn)
 {
@@ -317,6 +319,7 @@ static int FS_ParsedName_setup(struct parsedname_pointers *pp, const char *path,
 	pn->known_bus = NULL;		/* all buses */
 	pn->sparse_name = NULL ;
 	pn->return_code = 0;
+	pn->fd = fd;
 
 	/* Set the persistent state info (temp scale, ...) -- will be overwritten by client settings in the server */
 	CONTROLFLAGSLOCK;

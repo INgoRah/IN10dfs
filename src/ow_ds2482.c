@@ -260,6 +260,11 @@ enum search_status DS2482_next_both(struct device_search *ds, int fd)
 		return search_done;
 	}
 
+	DS2482_reset(fd);
+	/* Make sure we're using the correct channel */
+	/* Appropriate search command */
+	DS2482_send(fd, ds->search);
+
 	// loop to do the search
 	for (bit_number = 0; bit_number < 64; ++bit_number) {
 		LEVEL_DEBUG("bit number %d", bit_number);

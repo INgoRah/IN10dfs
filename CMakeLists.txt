@@ -15,6 +15,7 @@ find_package(I2C REQUIRED)
 include_directories(${FUSE_INCLUDE_DIR})
 include_directories(${I2C_INCLUDE_DIRS})
 include_directories(include)
+
 add_executable(owctl
 	owctl_main.c
 	src/ow_cache.c

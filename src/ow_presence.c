@@ -142,6 +142,7 @@ int FS_present(struct one_wire_query *owq)
 {
 	struct parsedname *pn = PN(owq);
 
+	LEVEL_CALL("check");
 	if (NotRealDir(pn)) {
 		OWQ_Y(owq) = 1;
 	} else if ( IsUncachedDir(pn) ) {
