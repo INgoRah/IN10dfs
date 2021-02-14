@@ -35,14 +35,15 @@ int FS_fstat_postparse(struct stat *stbuf, const struct parsedname *pn)
 {
 	memset(stbuf, 0, sizeof(struct stat));
 
-	//LEVEL_CALL("ATTRIBUTES path=%s", SAFESTRING(pn->path));
+	LEVEL_CALL("ATTRIBUTES path=%s", SAFESTRING(pn->path));
 	if (KnownBus(pn) && pn->known_bus == NULL) {
 		/* check for presence of first in-device at least since FS_ParsedName
 		 * doesn't do it yet. */
+		LEVEL_DEBUG("issue path=%s", SAFESTRING(pn->path));
 		return -ENOENT;
 	} else if (pn->selected_device == NO_DEVICE) {	/* root directory */
 		int nr = 0;
-		//printf("FS_fstat root\n");
+		LEVEL_DEBUG("path=%s FS_fstat  root", SAFESTRING(pn->path));
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;	// plus number of sub-directories
 		nr = -1;				// make it 1
@@ -58,7 +59,7 @@ int FS_fstat_postparse(struct stat *stbuf, const struct parsedname *pn)
 		return 0;
 	} else if (pn->selected_filetype == NO_FILETYPE) {
 		int nr = 0;
-		//printf("FS_fstat pn.selected_filetype == NULL  (1-wire device)\n");
+		LEVEL_DEBUG("path=%s FS_fstat pn.selected_filetype == NULL  (1-wire device)", SAFESTRING(pn->path));
 		stbuf->st_mode = S_IFDIR | 0777;
 		stbuf->st_nlink = 2;	// plus number of sub-directories
 
@@ -99,6 +100,7 @@ int FS_fstat_postparse(struct stat *stbuf, const struct parsedname *pn)
 			break;
 		}
 		stbuf->st_size = FullFileLength(pn);
+		LEVEL_DEBUG("dir/subdir path=%s", SAFESTRING(pn->path));
 		return 0;
 	}
 }

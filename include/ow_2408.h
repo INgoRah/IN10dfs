@@ -11,9 +11,6 @@
 #ifndef OW_2408_H
 #define OW_2408_H
 
-#ifndef OWFS_CONFIG_H
-#error Please make sure owfs_config.h is included *before* this header file
-#endif
 #include "ow_standard.h"
 
 /* ------- Structures ----------- */

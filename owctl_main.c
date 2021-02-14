@@ -12,8 +12,10 @@
 #include "ow.h"
 #include "owfs.h"
 #include "ow_search.h"
+#include "ow_cache.h"
 #include "ow_functions.h"
 #include "sys/mount.h"
+#include "ow_connection.h"
 
 #define MAX_BUS 2
 #define MAX_DEVS 15
@@ -36,14 +38,11 @@ int fd;
 int main(int argc, char *argv[])
 {
 	int ret;
+	struct port_in * pin;
 
 	printf ("IN10d %s\n", __TIME__);
-	printf ("%d\n", Globals.error_level);
-	LEVEL_DEFAULT("Lvl Default");
-	LEVEL_CALL("Lvl Call");
-	if (Globals.error_level>=e_err_call)  {
-    	err_msg(e_err_type_level,e_err_call,   __FILE__,__LINE__,__func__,"test"); }
 #if 0
+
 	int adr;
 	fd = open("/dev/i2c-0", O_RDWR);
 	if (fd < 0) {
@@ -66,30 +65,22 @@ int main(int argc, char *argv[])
 	}
 	close(fd);
 #endif
+	/* Set up owlib */
+	Cache_Open();
+	/* device arg / i2c args */
+	pin = NewPort(NULL) ;
+	if (pin == NULL || pin->first == NO_CONNECTION)
+		return -1;
+
 	/* libstart */
 	/* Build device and filetype arrays (including externals) */
 	DeviceSort();
-	/*
 
-struct inbound_control Inbound_Control = {
-	.active = 0,
-	.next_index = 0,
-	.head_port = NULL,
-};
-
-	struct port_in pin;
-	pin.file_descriptor = -1;
-	Inbound_Control.head_port = pin ;
-
-	struct port_in *pin = Inbound_Control.head_port;
-
-	if ( BAD( DS2482_detect(pin) )) {
-	*/
-	if (DS2482_detect(&fd) == -1) {
+	if (DS2482_detect(pin) == -1) {
 		LEVEL_DEFAULT("Cannot detect an i2c DS2482-x00");
 		return -1;
 	}
-	printf ("fd=%d\n", fd);
+	LEVEL_DEFAULT("detected an i2c DS2482-x00");
 
 #if FUSE_VERSION > 25
 	ret = fuse_main(argc, argv, &owfs_oper, NULL);
@@ -97,5 +88,6 @@ struct inbound_control Inbound_Control = {
 	ret = fuse_main(argc, argv, &owfs_oper);
 #endif							/* FUSE_VERSION <= 25 */
 
+	Cache_Close();
 	return ret;
 }

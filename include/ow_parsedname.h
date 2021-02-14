@@ -102,8 +102,6 @@ enum ePN_type {
 	ePN_max_type,
 };
 
-extern char *ePN_name[];		// must match ePN_type
-
 enum ePS_state {
 	ePS_normal        = 0x0000,
 	ePS_uncached      = 0x0001,
@@ -123,8 +121,6 @@ enum ePS_state {
 struct parsedname {
 	char path[2*PATH_MAX+2];				// full device name
 	char path_to_server[PATH_MAX+2];			// path without first bus
-	char * device_name ;		// for external name
-	int fd;
 	struct connection_in *known_bus;	// where this device is located
 	enum ePN_type type;			// real? settings? ...
 	enum ePS_state state;			// alarm?
@@ -148,7 +144,6 @@ struct parsedname {
 #define SHOULD_RETURN_BUS_LIST      ( (unsigned int) 0x00000002 )
 #define PERSISTENT_MASK             ( (unsigned int) 0x00000004 )
 #define PERSISTENT_BIT     2
-#define ALIAS_REQUEST               ( (unsigned int) 0x00000008 )
 #define SAFEMODE                    ( (unsigned int) 0x00000010 )
 #define UNCACHED                    ( (unsigned int) 0x00000020 )
 #define TRIM                        ( (unsigned int) 0x00000040 )
@@ -199,8 +194,6 @@ struct parsedname {
 #define SpecifiedBus(pn)          ((((pn)->state) & ePS_buslocal) != 0 )
 
 #define RootNotBranch(pn)         (((pn)->ds2409_depth)==0)
-
-int SetKnownBus(int bus_number, struct parsedname * pn);
 
 enum parse_enum {
 	parse_first,

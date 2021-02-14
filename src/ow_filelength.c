@@ -31,12 +31,8 @@ size_t FileLength(const struct parsedname *pn)
 		return PROPERTY_LENGTH_UNSIGNED;
 	case ft_float:
 		return PROPERTY_LENGTH_FLOAT;
-	case ft_pressure:
-		return PROPERTY_LENGTH_PRESSURE;
 	case ft_temperature:
 		return PROPERTY_LENGTH_TEMP;
-	case ft_tempgap:
-		return PROPERTY_LENGTH_TEMPGAP;
 	case ft_bitfield:
 		return (pn->extension == EXTENSION_BYTE) ? PROPERTY_LENGTH_UNSIGNED : PROPERTY_LENGTH_YESNO;
 	case ft_vascii:			// not used anymore here...

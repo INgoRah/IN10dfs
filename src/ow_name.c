@@ -11,17 +11,6 @@
 #include "ow.h"
 #include "ow_devices.h"
 
-char *ePN_name[] = {
-	"",
-	"",
-	"statistics",
-	"system",
-	"settings",
-	"structure",
-	"interface",
-	0,
-};
-
 /* device display format */
 void FS_devicename(char *buffer, const size_t length, const uint8_t * sn, const struct parsedname *pn)
 {

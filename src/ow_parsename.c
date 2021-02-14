@@ -10,6 +10,7 @@
 
 // regex
 #include "ow.h"
+#include "ow_connection.h"
 #include <pthread.h>
 //#include "ow_devices.h"
 #include <regex.h>
@@ -59,29 +60,19 @@ static enum parse_enum Parse_Property(char *filename, struct parsedname *pn);
 
 static enum parse_enum Parse_RealDeviceSN(enum parse_pass remote_status, struct parsedname *pn);
 static enum parse_enum Parse_Bus( int bus_number, struct parsedname *pn);
-static enum parse_enum Parse_Alias(char *filename, enum parse_pass remote_status, struct parsedname *pn);
-static enum parse_enum Parse_Alias_Known( char *filename, enum parse_pass remote_status, struct parsedname *pn);
-static void ReplaceAliasInPath( char * filename, struct parsedname * pn);
 
 static int FS_ParsedName_anywhere(const char *path, enum parse_pass remote_status, struct parsedname *pn);
 static int FS_ParsedName_setup(struct parsedname_pointers *pp, const char *path, struct parsedname *pn);
-static char * find_segment_in_path( char * segment, char * path ) ;
 
 #define BRANCH_INCR (9)
 
 static regex_t rx_bus;
 static regex_t rx_set;
-static regex_t rx_sta;
 static regex_t rx_str;
-static regex_t rx_sys;
-static regex_t rx_int;
 static regex_t rx_tex;
 static regex_t rx_jso;
 static regex_t rx_unc;
-static regex_t rx_una;
 static regex_t rx_ala;
-static regex_t rx_sim;
-static regex_t rx_the;
 static regex_t rx_p_bus;
 static regex_t rx_extension;
 static regex_t rx_all;
@@ -93,17 +84,11 @@ static void regex_fini(void)
 {
 	regfree(&rx_bus);
 	regfree(&rx_set);
-	regfree(&rx_sta);
 	regfree(&rx_str);
-	regfree(&rx_sys);
-	regfree(&rx_int);
 	regfree(&rx_tex);
 	regfree(&rx_jso);
 	regfree(&rx_unc);
-	regfree(&rx_una);
 	regfree(&rx_ala);
-	regfree(&rx_sim);
-	regfree(&rx_the);
 	regfree(&rx_p_bus);
 	regfree(&rx_extension);
 	regfree(&rx_all);
@@ -118,17 +103,12 @@ static void regex_init(void)
 {
 	ow_regcomp(&rx_bus, "^bus\\.([[:digit:]]+)/?", REG_ICASE);
 	ow_regcomp(&rx_set, "^settings/?", REG_ICASE | REG_NOSUB);
-	ow_regcomp(&rx_sta, "^statistics/?", REG_ICASE | REG_NOSUB);
+	//ow_regcomp(&rx_sta, "^statistics/?", REG_ICASE | REG_NOSUB);
 	ow_regcomp(&rx_str, "^structure/?", REG_ICASE | REG_NOSUB);
-	ow_regcomp(&rx_sys, "^system/?", REG_ICASE | REG_NOSUB);
-	ow_regcomp(&rx_int, "^interface/?", REG_ICASE | REG_NOSUB);
 	ow_regcomp(&rx_tex, "^text/?", REG_ICASE | REG_NOSUB);
 	ow_regcomp(&rx_jso, "^json/?", REG_ICASE | REG_NOSUB);
 	ow_regcomp(&rx_unc, "^uncached/?", REG_ICASE | REG_NOSUB);
-	ow_regcomp(&rx_una, "^unaliased/?", REG_ICASE | REG_NOSUB);
 	ow_regcomp(&rx_ala, "^alarm\?", REG_ICASE | REG_NOSUB);
-	ow_regcomp(&rx_sim, "^simultaneous/?", REG_ICASE | REG_NOSUB);
-	ow_regcomp(&rx_the, "^thermostat/?", REG_ICASE | REG_NOSUB);
 	ow_regcomp(&rx_p_bus, "^/bus\\.[[:digit:]]+/?", REG_ICASE);
 	ow_regcomp(&rx_extension, "\\.", 0);
 	ow_regcomp(&rx_all, "\\.all$", REG_ICASE);
@@ -216,7 +196,7 @@ static int FS_ParsedName_anywhere(const char *path, enum parse_pass remote_statu
 				continue;
 			}
 
-			printf("%s: Parse before corrections: %.4X -- state = %d\n",pn->path,pn->state,pn->type) ;
+			//printf("%s: Parse before corrections: %.4X -- state = %d\n",pn->path,pn->state,pn->type) ;
 			// Play with remote levels
 			switch ( pn->type ) {
 				case ePN_interface:
@@ -319,7 +299,6 @@ static int FS_ParsedName_setup(struct parsedname_pointers *pp, const char *path,
 	pn->known_bus = NULL;		/* all buses */
 	pn->sparse_name = NULL ;
 	pn->return_code = 0;
-	pn->fd = fd;
 
 	/* Set the persistent state info (temp scale, ...) -- will be overwritten by client settings in the server */
 	CONTROLFLAGSLOCK;
@@ -376,20 +355,8 @@ static int FS_ParsedName_setup(struct parsedname_pointers *pp, const char *path,
 	pp->pathnext = pp->pathcpy;
 	pn->dirlength = strlen(pn->path) ;
 
-	/* device name */
-	pn->device_name = NULL ;
-
 	/* connection_in list and start */
-	/* ---------------------------- */
-	/* -- This is important:     -- */
-	/* --     Buses can --          */
-	/* -- be added by Browse so  -- */
-	/* -- a reader/writer lock is - */
-	/* -- held until ParsedNameDestroy */
-	/* ---------------------------- */
-
-	CONNIN_RLOCK;
-	//pn->selected_connection = NO_CONNECTION ; // Default bus assignment
+	pn->selected_connection = NULL ; // Default bus assignment
 
 	return 0 ; // success
 }
@@ -426,21 +393,8 @@ static enum parse_enum Parse_Unspecified(char *pathnow, enum parse_pass remote_s
 	} else if (ow_regexec( &rx_set, pathnow, NULL ) == 0) {
 		return set_type( ePN_settings, pn ) ;
 
-	} else if (ow_regexec( &rx_sta, pathnow, NULL ) == 0) {
-		return set_type( ePN_statistics, pn ) ;
-
 	} else if (ow_regexec( &rx_str, pathnow, NULL ) == 0) {
 		return set_type( ePN_structure, pn ) ;
-
-	} else if (ow_regexec( &rx_sys, pathnow, NULL ) == 0) {
-		return set_type( ePN_system, pn ) ;
-
-	} else if (ow_regexec( &rx_int, pathnow, NULL ) == 0) {
-		if (!SpecifiedBus(pn)) {
-			return parse_error;
-		}
-		pn->type = ePN_interface;
-		return parse_nonreal;
 
 	} else if (ow_regexec( &rx_tex, pathnow, NULL ) == 0) {
 		pn->state |= ePS_text;
@@ -452,10 +406,6 @@ static enum parse_enum Parse_Unspecified(char *pathnow, enum parse_pass remote_s
 
 	} else if (ow_regexec( &rx_unc, pathnow, NULL ) == 0) {
 		pn->state |= ePS_uncached;
-		return parse_first;
-
-	} else if (ow_regexec( &rx_una, pathnow, NULL ) == 0) {
-		pn->state |= ePS_unaliased;
 		return parse_first;
 
 	}
@@ -480,11 +430,7 @@ static enum parse_enum Parse_Real(char *pathnow, enum parse_pass remote_status, 
 {
 	pthread_once(&regex_init_once, regex_init);
 
-	if (ow_regexec( &rx_sim, pathnow, NULL ) == 0) {
-		//pn->selected_device = DeviceSimultaneous;
-		return parse_prop;
-
-	} else if (ow_regexec( &rx_tex, pathnow, NULL ) == 0) {
+	if (ow_regexec( &rx_tex, pathnow, NULL ) == 0) {
 		pn->state |= ePS_text;
 		return parse_real;
 
@@ -492,16 +438,8 @@ static enum parse_enum Parse_Real(char *pathnow, enum parse_pass remote_status, 
 		pn->state |= ePS_json;
 		return parse_real;
 
-	} else if (ow_regexec( &rx_the, pathnow, NULL ) == 0) {
-		//pn->selected_device = DeviceThermostat;
-		return parse_prop;
-
 	} else if (ow_regexec( &rx_unc, pathnow, NULL ) == 0) {
 		pn->state |= ePS_uncached;
-		return parse_real;
-
-	} else if (ow_regexec( &rx_una, pathnow, NULL ) == 0) {
-		pn->state |= ePS_unaliased;
 		return parse_real;
 
 	} else {
@@ -529,12 +467,11 @@ static enum parse_enum Parse_Bus(int bus_number, struct parsedname *pn)
 		/* too many levels of bus for a non-remote adapter */
 		return parse_error;
 	}
-#if 0
 	/* Since we are going to use a specific in-device now, set
 	 * pn->selected_connection to point at that device at once. */
 	if (SetKnownBus(bus_number, pn))
 		return parse_error ; // bus doesn't exist
-#endif
+
 	pn->state |= ePS_buslocal;
 	/* don't return bus-list for local paths. */
 	pn->control_flags &= (~SHOULD_RETURN_BUS_LIST);
@@ -549,111 +486,6 @@ static enum parse_enum Parse_Bus(int bus_number, struct parsedname *pn)
 	return parse_first;
 }
 
-// search path for this exact matching path segment
-static char * find_segment_in_path( char * segment, char * path )
-{
-	int segment_length = strlen(segment) ;
-	char augmented_segment[ segment_length + 2 ] ;
-
-	char * path_pointer = path ;
-
-	augmented_segment[0] = '/' ;
-	strcpy( &augmented_segment[1], segment ) ;
-
-	while ( (path_pointer = strstr( path_pointer , augmented_segment )) != NULL ) {
-		++ path_pointer ; // point after '/'
-		switch( path_pointer[segment_length] ) {
-			case '\0':
-			case '/':
-				return path_pointer ;
-			default:
-				// not a full match -- try again
-				break ;
-		}
-	}
-
-	return NULL ;
-}
-
-/* replace alias with sn */
-static void ReplaceAliasInPath( char * filename, struct parsedname * pn)
-{
-	/*
-	int alias_len = strlen(filename) ;
-
-	// check total length
-	if ( strlen(pn->path_to_server) + 14 - alias_len <= PATH_MAX ) {
-		// find the alias
-		char * alias_loc = find_segment_in_path( filename, pn->path_to_server ) ;
-
-		if ( alias_loc != NULL ) {
-			char * post_alias_loc ;
-
-			post_alias_loc = alias_loc + alias_len ;
-
-			// move rest of path
-			memmove( &alias_loc[14], post_alias_loc, strlen(post_alias_loc)+1 ) ;
-			//write in serial number for alias
-			bytes2string( alias_loc, pn->sn, 7 ) ;
-		}
-	}
-*/
-}
-
-/* This is when the alias name in mapped to a known serial number
- * behaves much more like the standard handling -- bus from sn */
-static enum parse_enum Parse_Alias_Known( char *filename, enum parse_pass remote_status, struct parsedname *pn)
-{
-	if (remote_status == parse_pass_pre_remote) {
-		ReplaceAliasInPath( filename, pn ) ;
-	}
-
-	return Parse_RealDeviceSN( remote_status, pn ) ;
-}
-
-/* Get a device that isn't a serial number -- see if it's an alias */
-static enum parse_enum Parse_Alias(char *filename, enum parse_pass remote_status, struct parsedname *pn)
-{
-#if 0
-	int bus ;
-
-	// See if the alias is known in the permanent list. We get the serial number
-	if ( GOOD( Cache_Get_Alias_SN(filename,pn->sn)) ) {
-		// Success! The alias is already registered and the serial
-		//  number just now loaded in pn->sn
-		return Parse_Alias_Known( filename, remote_status, pn ) ;
-	}
-
-	// By definition this is a remote device, or non-existent.
-	pn->selected_device = &RemoteDevice ;
-	// is alias name cached from previous query?
-	bus = Cache_Get_Alias_Bus( filename ) ;
-	if ( bus != -1 ) {
-		// This alias is cached in temporary list
-		SetKnownBus(bus, pn);
-		return parse_prop ;
-	}
-	// Look for alias in remote buses
-	bus = RemoteAlias(pn) ;
-	if ( bus == -1 ) {
-		return parse_error ;
-	}
-
-	// Found the alias (remotely)
-	SetKnownBus(bus, pn);
-
-	if ( pn->sn[0] == 0 && pn->sn[7]==0 ) { // no serial number owserver (older)
-		Cache_Add_Alias_Bus(filename,bus) ;
-	} else {
-		Cache_Add_Alias( filename, pn->sn ) ;
-		Cache_Add_Device( bus, pn->sn ) ;
-		pn->selected_device = FS_devicefindhex(pn->sn[0], pn);
-	}
-#endif
-
-	return parse_prop ;
-}
-
 /* Parse Name (only device name) part of string */
 /* Return -ENOENT if not a valid name
    return 0 if good
@@ -661,17 +493,11 @@ static enum parse_enum Parse_Alias(char *filename, enum parse_pass remote_status
  */
 static enum parse_enum Parse_RealDevice(char *filename, enum parse_pass remote_status, struct parsedname *pn)
 {
-	pn->device_name = find_segment_in_path( filename, pn->path ) ;
-	switch ( Parse_SerialNumber(filename,pn->sn) ) {
-		case sn_not_sn:
-			/*if ( Find_External_Sensor( filename ) ) {
-				return Parse_External_Device( filename, pn ) ;
-			} else */{
-				return Parse_Alias( filename, remote_status, pn) ;
-			}
+	switch (Parse_SerialNumber(filename,pn->sn)) {
 		case sn_valid:
 			return Parse_RealDeviceSN( remote_status, pn ) ;
 		case sn_invalid:
+		case sn_not_sn:
 		default:
 			return parse_error ;
 	}
@@ -696,15 +522,6 @@ static enum parse_enum Parse_RealDeviceSN(enum parse_pass remote_status, struct 
 		return parse_error;	/* CheckPresence failed */
 
 	return parse_prop;
-}
-
-/* Parse Name (non-device name) part of string */
-static enum parse_enum Parse_NonRealDevice(char *filename, struct parsedname *pn)
-{
-	//printf("Parse_NonRealDevice: [%s] [%s]\n", filename, pn->path);
-	pn->device_name = find_segment_in_path( filename, pn->path ) ;
-	FS_devicefind(filename, pn);
-	return (pn->selected_device == &UnknownDevice) ? parse_error : parse_prop;
 }
 
 static enum parse_enum Parse_Property(char *filename, struct parsedname *pn)

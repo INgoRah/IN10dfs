@@ -20,8 +20,10 @@ add_executable(owctl
 	owctl_main.c
 	src/ow_cache.c
 	src/owfs_callback.c
+	src/ow_connect.c
 	src/ow_crc.c
 	src/ow_dirblob.c src/ow_dir.c
+	src/ow_2408.c
 	src/ow_ds2482.c
 	src/error.c
 	src/ow_filelength.c

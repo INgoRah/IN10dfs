@@ -43,24 +43,14 @@
 #include "ow_memblob.h"
 #include "ow_cache.h"
 #include "ow_search.h"
+#include "ow_connection.h"
 
 #define INDEX_BAD -1
 #define INDEX_DEFAULT 0
 
-extern int DS2482_detect(int *fd);
-
 /* ------- Prototypes ------------ */
 static int CheckPresence_low(struct parsedname *pn);
 static int CheckThisConnection(int bus_nr, struct parsedname *pn) ;
-static GOOD_OR_BAD PresenceFromDirblob( struct parsedname * pn ) ;
-
-/* ------- Functions ------------ */
-int SetKnownBus( int bus_number, struct parsedname * pn)
-{
-	pn->state |= ePS_bus;
-
-	return 0 ;
-}
 
 /* Check if device exists -- >=0 yes, -1 no */
 int CheckPresence(struct parsedname *pn)
@@ -74,7 +64,7 @@ int CheckPresence(struct parsedname *pn)
 	/* If set, already found bus. */
 	/* Use UnsetKnownBus to clear and allow a new search */
 	if (KnownBus(pn)) {
-		return 0;
+		return pn->known_bus->index;
 	}
 	if (GOOD(Cache_Get_Device(&bus_nr, pn))) {
 		LEVEL_DEBUG("Found device on bus %d",bus_nr);
@@ -90,7 +80,6 @@ int CheckPresence(struct parsedname *pn)
 		Cache_Add_Device( bus_nr, pn->sn ) ;
 		return bus_nr;
 	}
-	pn->fd = -1;
 	UnsetKnownBus(pn);
 
 	return INDEX_BAD;
@@ -152,8 +141,6 @@ int FS_present(struct one_wire_query *owq)
 			TRXN_END,
 		};
 		OWQ_Y(owq) = BAD(BUS_transaction(t, pn)) ? 0 : 1;
-	} else if ( pn->selected_connection->iroutines.flags & ADAP_FLAG_presence_from_dirblob ) {
-		OWQ_Y(owq) = GOOD( PresenceFromDirblob(pn) ) ;
 	} else if ( pn->selected_connection->iroutines.flags & ADAP_FLAG_sham ) {
 		OWQ_Y(owq) = 0 ;
 	} else {
@@ -173,34 +160,28 @@ int FS_present(struct one_wire_query *owq)
 // Look on a given connection for the device
 static int CheckThisConnection(int bus_nr, struct parsedname *pn)
 {
-	if (DS2482_detect(&pn->fd) != 0)
-		return INDEX_BAD;
+	struct parsedname s_pn_copy;
+	struct parsedname * pn_copy = &s_pn_copy ;
+	struct connection_in * in = find_connection_in(bus_nr) ;
+	int connection_result = -1;
 
-	return 0;
-}
+	if (in == NO_CONNECTION)
+		return -1;
 
-static GOOD_OR_BAD PresenceFromDirblob( struct parsedname * pn )
-{
-	struct dirblob db;	// cached dirblob
-	if ( GOOD( Cache_Get_Dir( &db , pn ) ) ) {
-		// Use the dirblob from the cache
-		GOOD_OR_BAD ret = ( DirblobSearch(pn->sn, &db ) >= 0 ) ? gbGOOD : gbBAD ;
-		DirblobClear( &db ) ;
-		return ret ;
+	memcpy(pn_copy, pn, sizeof(struct parsedname));	// shallow copy
+	pn_copy->selected_connection = in;
+
+	if (TestConnection(pn_copy) != 0)
+		// Connection currently disconnected
+		return -1;
+	else
+		connection_result =  in->index ;
+	if (connection_result == -1) {
+		LEVEL_DEBUG("Presence of "SNformat" NOT found", SNvar(pn_copy->sn)) ;
 	} else {
-		// look through actual directory
-		struct device_search ds ;
-		enum search_status nextboth = BUS_first( &ds, pn ) ;
-
-		while ( nextboth == search_good ) {
-			if ( memcmp( ds.sn, pn->sn, SERIAL_NUMBER_SIZE ) == 0 ) {
-				// found it. Early exit.
-				BUS_next_cleanup( &ds );
-				return gbGOOD ;
-			}
-			// Not found. Clean up done by BUS_next in this case
-			nextboth = BUS_next( &ds, pn ) ;
-		}
-		return gbBAD ;
+		LEVEL_DEBUG("Presence of "SNformat" FOUND", SNvar(pn_copy->sn)) ;
+		Cache_Add_Device(in->index,pn_copy->sn) ; // add or update cache */
 	}
+
+	return connection_result ;
 }

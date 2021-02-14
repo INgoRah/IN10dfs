@@ -53,7 +53,7 @@ ZERO_OR_ERROR FS_present(struct one_wire_query *owq);
 #define F_r_locator \
 {"r_locator" ,  PROPERTY_LENGTH_ADDRESS,  NON_AGGREGATE, ft_ascii , fc_directory,FS_r_locator, NO_WRITE_FUNCTION, VISIBLE, NO_FILETYPE_DATA, }
 
-#define F_STANDARD_NO_TYPE          F_address,F_code,F_crc8,F_id,F_locator,F_present,F_r_address,F_r_id,F_r_locator,F_alias
+#define F_STANDARD_NO_TYPE          F_address,F_code,F_crc8,F_id,F_present,F_r_address,F_r_id
 
 #define F_STANDARD F_STANDARD_NO_TYPE,F_type
 

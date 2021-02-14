@@ -16,7 +16,7 @@
 //#include "ow_connection.h"
 //#include "ow_codes.h"
 
-extern enum search_status DS2482_next_both(struct device_search *ds, int fd);
+extern enum search_status DS2482_next_both(struct device_search *ds, const struct parsedname *pn);
 
 static void BUS_first_both(struct device_search *ds);
 static enum search_status BUS_next_3try(struct device_search *ds, const struct parsedname *pn) ;
@@ -127,12 +127,11 @@ static enum search_status BUS_next_3try(struct device_search *ds, const struct p
 	return search_error;
 }
 
-/* Call either master-specific search routine, or the bit-banging one */
 enum search_status BUS_next_both(struct device_search *ds, const struct parsedname *pn)
 {
 	enum search_status next_both;
 
-	next_both = DS2482_next_both(ds, pn->fd);
+	next_both = DS2482_next_both(ds, pn);
 
 	return next_both ;
 }

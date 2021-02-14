@@ -19,13 +19,13 @@
 void ow_regcomp( regex_t * reg, const char * regex, int cflags )
 {
 	int reg_res = regcomp( reg, regex, cflags | REG_EXTENDED ) ;
-	if ( reg_res == 0 ) {
-		LEVEL_DEBUG("Reg Ex expression <%s> compiled to %p",regex,reg) ;
-	} else {
+	if ( reg_res != 0 ) {
 		char e[101];
 		regerror( reg_res, reg, e, 100 ) ;
 		LEVEL_DEBUG("Problem compiling reg expression <%s>: %s",regex, e ) ;
+		return;
 	}
+	//LEVEL_DEBUG("Reg Ex expression <%s> compiled to %p",regex,reg) ;
 }
 
 // wrapper for regcomp
@@ -96,7 +96,7 @@ int ow_regexec( const regex_t * rex, const char * string, struct ow_regmatch * o
 				orm->post[i] = orm->match[i] + l + 1 ;
 				memcpy( orm->post[i], &string[e], len-e+1 ) ;
 
-				LEVEL_DEBUG("%d: %d->%d found <%s><%s><%s>",i,s,e,orm->pre[i],orm->match[i],orm->post[i]) ;
+				//LEVEL_DEBUG("%d: %d->%d found <%s><%s><%s>",i,s,e,orm->pre[i],orm->match[i],orm->post[i]) ;
 			}
 		}
 		return 0 ;

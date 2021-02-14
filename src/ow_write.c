@@ -13,10 +13,10 @@
 #include "ow_dirblob.h"
 #include "ow_memblob.h"
 #include "ow_cache.h"
+#include "ow_connection.h"
 
 /* ------- Prototypes ----------- */
 static int FS_w_given_bus(struct one_wire_query *owq);
-static int FS_w_settings(struct one_wire_query *owq);
 static int FS_w_interface(struct one_wire_query *owq);
 static int FS_w_local(struct one_wire_query *owq);
 static int FS_write_owq(struct one_wire_query *owq);
@@ -123,11 +123,8 @@ static int FS_write_post_input(struct one_wire_query *owq)
 			// No writable features here
 			LEVEL_DEBUG("Cannot write in this type of directory.") ;
 			return -ENOTSUP;
-		case ePN_settings:
-			return FS_w_settings(owq);
 		case ePN_real:				// ePN_real
-			/* handle DeviceSimultaneous */
-			if (pn->fd == -1) {
+			if (pn->selected_connection == NULL) {
 				LEVEL_DEBUG("Attempt to write but no 1-wire bus master.");
 				return -ENODEV;			// no buses
 			} else {
@@ -149,7 +146,7 @@ static int FS_write_real(int depth, struct one_wire_query *owq)
 	int write_or_error;
 	struct parsedname *pn = PN(owq);
 	struct filetype * ft = pn->selected_filetype ;
-	int initial_bus = pn->fd; // current selected bus
+	int initial_bus = pn->selected_connection->index ; // current selected bus
 	int rechecked_bus ;
 
 	if ( depth > 1 ) {
@@ -215,22 +212,6 @@ static int FS_w_interface(struct one_wire_query *owq)
 #endif
 
 	return 0;
-}
-
-/* Write to settings dir */
-static int FS_w_settings(struct one_wire_query *owq)
-{
-	struct parsedname *pn = PN(owq);
-
-	if ( BAD(TestConnection(pn)) ) {
-		// safe for connection_in == NULL
-		return -ECONNABORTED;
-	} else if (pn->fd == -1 ) {
-		LEVEL_DEBUG("Attempt to write to local bus for /settings");
-		return -ENODEV ;
-	} else {
-		return FS_w_local(owq);
-	}
 }
 
 /* Write now that connection is set */

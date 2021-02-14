@@ -100,8 +100,6 @@ enum ft_format {
 	ft_yesno,
 	ft_bitfield,
 	ft_temperature,
-	ft_tempgap,
-	ft_pressure,
 };
 
 	/* property changability. Static unchanged, Stable we change, Volatile changes */

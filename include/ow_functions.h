@@ -54,8 +54,6 @@ void DeviceSort(void);
 #define  WRITE_FUNCTION( fname )  static int fname(struct one_wire_query * owq)
 #define  VISIBLE_FUNCTION( fname )  static enum e_visibility fname(const struct parsedname * pn);
 
-int TestConnection(const struct parsedname *pn);
-
 /* Pasename processing -- URL/path comprehension */
 int filetype_cmp(const void *name, const void *ex);
 int FS_ParsedName(const char *fn, struct parsedname *pn);
@@ -117,13 +115,13 @@ int FS_read_local( struct one_wire_query *owq);
 int FS_fstat(const char *path, struct stat *stbuf);
 int FS_fstat_postparse(struct stat *stbuf, const struct parsedname *pn);
 
-int DS2482_detect(int *fd);
-int DS2482_channel_select(int fd, int chan);
+struct port_in;
+int DS2482_detect(struct port_in *pin);
 
 struct device_search;
 
 enum search_status { search_good, search_done, search_error } ;
 
-enum search_status DS2482_next_both(struct device_search *ds, int fd);
+enum search_status DS2482_next_both(struct device_search *ds, const struct parsedname *pn);
 
 #endif							/* OW_FUNCTION_H */

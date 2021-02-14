@@ -101,9 +101,9 @@ void DeviceSort(void)
 	qsort(UnknownDevice.filetype_array,
         (size_t) UnknownDevice.count_of_filetypes,
         sizeof(struct filetype), file_compare);
+	Device2Tree( & d_DS2408,         ePN_real);
     /*
 	Device2Tree( & d_DS18B20,        ePN_real);
-	Device2Tree( & d_DS2408,         ePN_real);
 	Device2Tree( & d_DS2413,         ePN_real);
 	Device2Tree( & d_interface_settings,   ePN_interface);
 	Device2Tree( & d_interface_statistics, ePN_interface);

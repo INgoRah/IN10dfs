@@ -15,6 +15,7 @@
 #include "ow_dirblob.h"
 #include "ow_memblob.h"
 #include "ow_cache.h"
+#include "ow_connection.h"
 
 //#define CACHE_DEBUG
 
@@ -192,8 +193,6 @@ static time_t TimeOut(const enum fc_change change)
 	case fc_persistent:		/* arbitrary non-zero */
 		return 1;
 	case fc_volatile:
-	case fc_simultaneous_temperature:
-	case fc_simultaneous_voltage:
 		return Globals.timeout_volatile;
 	case fc_stable:
 	case fc_read_stable:
@@ -337,9 +336,7 @@ GOOD_OR_BAD OWQ_Cache_Add(const struct one_wire_query *owq)
 		case ft_unsigned:
 		case ft_yesno:
 		case ft_float:
-		case ft_pressure:
 		case ft_temperature:
-		case ft_tempgap:
 			LEVEL_DEBUG("Adding data for %s", SAFESTRING(pn->path) );
 			return Cache_Add(OWQ_array(owq), (pn->selected_filetype->ag->elements) * sizeof(union value_object), pn);
 		default:
@@ -360,9 +357,7 @@ GOOD_OR_BAD OWQ_Cache_Add(const struct one_wire_query *owq)
 		case ft_unsigned:
 		case ft_yesno:
 		case ft_float:
-		case ft_pressure:
 		case ft_temperature:
-		case ft_tempgap:
 			LEVEL_DEBUG("Adding data for %s", SAFESTRING(pn->path) );
 			return Cache_Add(&OWQ_val(owq), sizeof(union value_object), pn);
 		default:
@@ -418,7 +413,45 @@ static GOOD_OR_BAD Cache_Add(const void *data, const size_t datasize, const stru
 /* return 0 if good, 1 if not */
 GOOD_OR_BAD Cache_Add_Dir(const struct dirblob *db, const struct parsedname *pn)
 {
-	return gbGOOD;				// do check here to avoid needless processing
+	time_t duration = TimeOut(fc_directory);
+	struct tree_node *tn;
+	size_t size = DirblobElements(db) * SERIAL_NUMBER_SIZE;
+	struct parsedname pn_directory;
+
+	if (pn==NO_PARSEDNAME || pn->selected_connection == NULL) {
+		return gbGOOD;				// do check here to avoid needless processing
+	}
+
+	if (duration <= 0) {
+		return 0;				/* in case timeout set to 0 */
+	}
+
+	if ( DirblobElements(db) < 1 ) {
+		// only cache long directories.
+		// zero (or one?) entry is possibly an error and needs to be repeated more quickly
+		LEVEL_DEBUG("Won\'t cache empty directory");
+		Cache_Del_Dir( pn ) ;
+		return gbGOOD ;
+	}
+
+	// allocate space for the node and data
+	tn = (struct tree_node *) owmalloc(sizeof(struct tree_node) + size);
+	if (!tn) {
+		return gbBAD;
+	}
+
+	LEVEL_DEBUG("Adding directory for " SNformat " elements=%d", SNvar(pn->sn), DirblobElements(db));
+
+	// populate node with directory name and dirblob
+	FS_LoadDirectoryOnly(&pn_directory, pn);
+	LoadTK( pn_directory.sn, Directory_Marker, pn->selected_connection->index, tn );
+	tn->expires = duration + NOW_TIME;
+	tn->dsize = size;
+	if (size) {
+		memcpy(TREE_DATA(tn), db->snlist, size);
+	}
+
+	return Cache_Add_Common(tn);
 }
 
 /* Add a Simultaneous entry to the cache */
@@ -638,9 +671,7 @@ GOOD_OR_BAD OWQ_Cache_Get(struct one_wire_query *owq)
 		case ft_unsigned:
 		case ft_yesno:
 		case ft_float:
-		case ft_pressure:
 		case ft_temperature:
-		case ft_tempgap:
 			return Cache_Get_Strict(OWQ_array(owq), (pn->selected_filetype->ag->elements) * sizeof(union value_object), pn);
 		default:
 			return gbBAD;
@@ -660,9 +691,7 @@ GOOD_OR_BAD OWQ_Cache_Get(struct one_wire_query *owq)
 		case ft_unsigned:
 		case ft_yesno:
 		case ft_float:
-		case ft_pressure:
 		case ft_temperature:
-		case ft_tempgap:
 			return Cache_Get_Strict(&OWQ_val(owq), sizeof(union value_object), pn);
 		default:
 			return gbBAD;

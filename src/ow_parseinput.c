@@ -19,7 +19,6 @@ static int FS_input_yesno(struct one_wire_query *owq);
 static int FS_input_integer(struct one_wire_query *owq);
 static int FS_input_unsigned(struct one_wire_query *owq);
 static int FS_input_float(struct one_wire_query *owq);
-static int FS_input_date(struct one_wire_query *owq);
 static int FS_input_ascii(struct one_wire_query *owq);
 static int FS_input_array_with_commas(struct one_wire_query *owq);
 static int FS_input_ascii_array(struct one_wire_query *owq);

@@ -362,12 +362,6 @@ static int FS_structure(struct one_wire_query *owq)
 		case ft_temperature:
 			format_char = 't' ;
 			break ;
-		case ft_tempgap:
-			format_char = 'g' ;
-			break ;
-		case ft_pressure:
-			format_char = 'p' ;
-			break ;
 		case ft_unknown:
 		default:
 			format_char = '?' ;

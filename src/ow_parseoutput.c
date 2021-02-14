@@ -109,9 +109,7 @@ size_t OWQ_parse_output(struct one_wire_query *owq)
 			return OWQ_parse_output_yesno(owq);
 		case ft_unsigned:
 			return OWQ_parse_output_unsigned(owq);
-		case ft_pressure:
 		case ft_temperature:
-		case ft_tempgap:
 		case ft_float:
 			return OWQ_parse_output_float(owq);
 		case ft_vascii:
